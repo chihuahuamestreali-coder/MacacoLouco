@@ -270,5 +270,69 @@ Arquivos novos:
   ManusStyleInjectionPage, causando "Cannot read properties of null").
 
 ================================================================
+9. NOVOS MÓDULOS CLOUD/EMULADOR (ESTILO MANUS) + IP DISPLAY
+================================================================
+
+9.1 DISPLAY DE IP (CANTO SUPERIOR DIREITO)
+- Componente: client/src/components/IpDisplay.tsx
+- Renderizado em TODAS as páginas (App.tsx, junto ao TooltipProvider).
+- Mostra automaticamente o IP público da máquina no canto superior
+  direito (badge fixo, estilo cyberpunk, z-[100]).
+- Consulta serviços públicos de IP com fallback encadeado
+  (api.ipify.org -> ipv4.icanhazip.com -> ifconfig.me/ip).
+- Atualização automática a cada 60s. Clique no display copia o IP.
+- Se todos os serviços falharem, exibe "OFFLINE" em vermelho.
+
+9.2 MINI-MENU IMGBB (TOPO DA HOME)
+- Adicionado na Home um mini-menu bem pequeno acima dos cards,
+  alinhado da direita para a esquerda (flex justify-end).
+- Item: ImgBB -> abre https://pt-br.imgbb.com/ em guia nova
+  (mesmo comportamento do menu Ursa: window.open direto).
+- A estrutura aceita mais itens futuramente; basta adicionar ao
+  array miniMenus em Home.tsx.
+
+9.3 QUATRO NOVOS MÓDULOS NO PADRÃO MANUS (INJEÇÃO IN-SITE)
+Todos seguem o mesmo fluxo: copiar script -> abrir site -> colar
+no Console (F12), com Motor Anti-Detecção 16+, Comportamento Humano,
+nova identidade IMEI/MAC, device ID, sessão, cookies específicos,
+simulação de app nativo e persona sintética.
+
+- GeeLark Master      (/geelark)     app.geelark.com/#/register-pt   laranja
+  Cloud phone anti-detectável, cadastro PT-BR com código de convite UEJ3oz.
+  GLE_DEVICE_ID, GLE_SESSION, GLE_ANON_ID, GLE_INVITE_CODE.
+  URL: https://app.geelark.com/#/register-pt?invite_code=UEJ3oz
+
+- Redfinger Master    (/redfinger)   www.cloudemulator.net/app/sign-in  vermelho
+  Emulador Android na nuvem (login de criação).
+  RF_DEVICE_ID, RF_SESSION, RF_ANON_ID, RF_EMULATOR_MODEL.
+
+- VmosCloud Master    (/vmoscloud)   cloud.vmoscloud.com/buy   azul-céu
+  Cloud phone (login de criação), canal googlead_hant.
+  VMC_DEVICE_ID, VMC_SESSION, VMC_ANON_ID, VMC_CHANNEL, VMC_PLAN.
+
+- LDPlayer Master     (/ldplayer)    pt.ldplayer.net           lima
+  Emulador Android para PC (site pt-BR).
+  LDP_DEVICE_ID, LDP_SESSION, LDP_ANON_ID, LDP_EMULATOR_VER.
+
+9.4 ARQUIVOS NOVOS CRIADOS NESTA ETAPA
+- client/src/components/IpDisplay.tsx                    (display de IP)
+- client/src/lib/geelarkDeviceGenerator.ts               (módulo GeeLark)
+- client/src/lib/redfingerDeviceGenerator.ts             (módulo Redfinger)
+- client/src/lib/vmoscloudDeviceGenerator.ts             (módulo VmosCloud)
+- client/src/lib/ldplayerDeviceGenerator.ts              (módulo LDPlayer)
+- client/src/pages/GeeLarkManager.tsx                    (menu GeeLark)
+- client/src/pages/RedfingerManager.tsx                  (menu Redfinger)
+- client/src/pages/VmosCloudManager.tsx                  (menu VmosCloud)
+- client/src/pages/LdplayerManager.tsx                   (menu LDPlayer)
+
+9.5 ALTERAÇÕES EM ARQUIVOS EXISTENTES
+- App.tsx: rotas /geelark, /redfinger, /vmoscloud, /ldplayer +
+  componente IpDisplay montado em todas as páginas.
+- Home.tsx: 4 cards novos + mini-menu ImgBB + contador atualizado
+  para "27 MÓDULOS + 3 HUBS".
+- moduleGuides.ts: guias dos 4 novos módulos (geelark, redfinger,
+  vmoscloud, ldplayer) acessíveis no topo de cada página.
+
+================================================================
 FIM DO DOCUMENTO
 ================================================================

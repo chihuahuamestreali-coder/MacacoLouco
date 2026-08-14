@@ -31,6 +31,11 @@ import MonkeyCodeManager from "@/pages/MonkeyCodeManager";
 import Base44Manager from "@/pages/Base44Manager";
 import LovableManager from "@/pages/LovableManager";
 import EmergenteManager from "@/pages/EmergenteManager";
+import GeeLarkManager from "@/pages/GeeLarkManager";
+import RedfingerManager from "@/pages/RedfingerManager";
+import VmosCloudManager from "@/pages/VmosCloudManager";
+import LdplayerManager from "@/pages/LdplayerManager";
+import IpDisplay from "@/components/IpDisplay";
 
 function AppRouter() {
   return (
@@ -61,6 +66,10 @@ function AppRouter() {
       <Route path={"/base44"} component={Base44Manager} />
       <Route path={"/lovable"} component={LovableManager} />
       <Route path={"/emergente"} component={EmergenteManager} />
+      <Route path={"/geelark"} component={GeeLarkManager} />
+      <Route path={"/redfinger"} component={RedfingerManager} />
+      <Route path={"/vmoscloud"} component={VmosCloudManager} />
+      <Route path={"/ldplayer"} component={LdplayerManager} />
       <Route path={"/ursa"} component={UrsaManager} />
       <Route path={"/van-gogh"} component={VanGoghHub} />
       <Route path={"/404"} component={NotFound} />
@@ -86,6 +95,7 @@ function App() {
         // switchable
       >
         <TooltipProvider>
+          <IpDisplay />
           <AppRouter />
         </TooltipProvider>
       </ThemeProvider>

@@ -1,11 +1,15 @@
 import { useLocation } from 'wouter';
-import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud, Code2, Layers, Rocket, Flame } from 'lucide-react';
+import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud, Code2, Layers, Rocket, Flame, Monitor, Smartphone, Gamepad2, ImageIcon } from 'lucide-react';
 import DarkSpecialBanner from '@/components/DarkSpecialBanner';
 import VanGoghBanner from '@/components/VanGoghBanner';
 import ScoobyDooBanner from '@/components/ScoobyDooBanner';
 
 export default function Home() {
   const [, setLocation] = useLocation();
+
+  const miniMenus = [
+    { title: 'ImgBB', externalUrl: 'https://pt-br.imgbb.com/', icon: ImageIcon },
+  ];
 
   const generators = [
     { 
@@ -193,16 +197,66 @@ export default function Home() {
       color: 'from-amber-600/15 via-amber-600/5 to-transparent border-amber-500/30 text-amber-300 hover:border-amber-400/80',
       badge: 'SIGNUP BLINDADO'
     },
+    { 
+      title: 'GeeLark Master', 
+      desc: 'Cloud phone anti-detectável: nova identidade MAC/IMEI + device ID, sessão e código de convite, blindagem 16+ e app nativo', 
+      path: '/geelark', 
+      icon: Cloud, 
+      color: 'from-orange-600/15 via-orange-600/5 to-transparent border-orange-500/30 text-orange-400 hover:border-orange-400/80',
+      badge: 'CLOUD PHONE PT-BR'
+    },
+    { 
+      title: 'Redfinger Master', 
+      desc: 'Emulador Android na nuvem: nova identidade MAC/IMEI + device ID, sessão e modelo de emulador, blindagem 16+ e app nativo', 
+      path: '/redfinger', 
+      icon: Monitor, 
+      color: 'from-red-600/15 via-red-600/5 to-transparent border-red-500/30 text-red-400 hover:border-red-400/80',
+      badge: 'CLOUD EMULATOR'
+    },
+    { 
+      title: 'VmosCloud Master', 
+      desc: 'Cloud phone: nova identidade MAC/IMEI + device ID, sessão e canal googlead_hant, blindagem 16+ e app nativo', 
+      path: '/vmoscloud', 
+      icon: Smartphone, 
+      color: 'from-sky-600/15 via-sky-600/5 to-transparent border-sky-500/30 text-sky-400 hover:border-sky-400/80',
+      badge: 'CLOUD PHONE PRO'
+    },
+    { 
+      title: 'LDPlayer Master', 
+      desc: 'Emulador Android para PC: nova identidade MAC/IMEI + device ID, sessão e versão do emulador, blindagem 16+ e app nativo', 
+      path: '/ldplayer', 
+      icon: Gamepad2, 
+      color: 'from-lime-600/15 via-lime-600/5 to-transparent border-lime-500/30 text-lime-400 hover:border-lime-400/80',
+      badge: 'PC EMULATOR'
+    },
   ];
 
   return (
     <div className="min-h-screen bg-background text-foreground font-mono p-6 md:p-12" style={{ backgroundImage: "linear-gradient(rgba(7,12,31,0.94), rgba(7,12,31,0.98)), url('/manus-storage/field-manual-hero_13e2d1fa.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="max-w-7xl mx-auto">
+        {/* Mini-Menu Topo (da direita para a esquerda) - abrem o site externo em guia nova */}
+        <div className="flex justify-end gap-2 mb-4 flex-wrap">
+          {miniMenus.map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={idx}
+                onClick={() => window.open(item.externalUrl, '_blank')}
+                className="group flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-blue-500/40 bg-blue-500/10 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 text-[9px] font-bold uppercase tracking-wider transition-all hover:shadow-[0_0_10px_rgba(59,130,246,0.4)] cursor-pointer"
+                title={`Abrir ${item.title} em nova guia`}
+              >
+                <Icon className="w-3 h-3" />
+                {item.title}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12 border-b border-border/40 pb-8">
           <div className="mb-5 flex items-center justify-center gap-3">
             <img src="/manus-storage/device-master-mark_0b9ede57.png" alt="Símbolo Device Master" className="h-11 w-11 rounded-xl border border-teal-300/30 bg-slate-950/70 p-2" />
-            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 23 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
+            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 27 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
           </div>
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs mb-4 shadow-sm">
             <Cpu className="w-4 h-4 animate-pulse" />
