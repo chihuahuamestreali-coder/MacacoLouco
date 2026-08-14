@@ -7,9 +7,11 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff } from 'lucide-react';
+import { ShoppingCart, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -18,7 +20,6 @@ export default function MercadoLibreManager() {
   const [device, setDevice] = useState<MercadoLibreDeviceProfile | null>(null);
   const [personalData, setPersonalData] = useState<ReturnType<typeof generatePersonalData> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
   // Simulação de App Nativo — ATIVADA POR PADRÃO (pedido do usuário)
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
@@ -61,117 +62,76 @@ export default function MercadoLibreManager() {
     });
   };
 
-  const handleInjectAndOpen = async () => {
-    if (!device) {
-      toast.error('Gere um perfil Mercado Livre primeiro!');
-      return;
-    }
-    setIsInjecting(true);
-    try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado! Permita pop-ups no navegador.');
-        setIsInjecting(false);
-        return;
-      }
+  const buildInSiteScript = (): string => {
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'mercadolibre', userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'mercadolibre', userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
-        : '';
+    const profileJson = JSON.stringify({
+      macAddress: device!.macAddress,
+      imei: device!.imei,
+      androidId: device!.androidId,
+      model: device!.model,
+      manufacturer: device!.manufacturer,
+      resolution: device!.resolution,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      mlDeviceId: device!.mlDeviceId,
+      mlDeviceInfo: device!.mlDeviceInfo,
+      mlTrackingId: device!.mlTrackingId,
+    }).replace(/"/g, '\\"');
 
-      const profileJson = JSON.stringify({
-        macAddress: device.macAddress,
-        imei: device.imei,
-        androidId: device.androidId,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        resolution: device.resolution,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        mlDeviceId: device.mlDeviceId,
-        mlDeviceInfo: device.mlDeviceInfo,
-        mlTrackingId: device.mlTrackingId,
-      }).replace(/"/g, '\\"');
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['Simulação App Mercado Livre (WebView Marketplace)'] : []),
+      ...(enableMLDeviceId ? ['Device ID & Tracking ML Blindados'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
+    ];
 
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(simulateNativeApp ? ['Simulação App Mercado Livre (WebView Marketplace)'] : []),
-        ...(enableMLDeviceId ? ['Device ID & Tracking ML Blindados'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
-      ];
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
 
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Executa motor anti-detecção avançado (16+ ferramentas)
-            ${antiDetectionCode}
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Mercado Livre e Bridge\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
 
-            ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Mercado Livre e Bridge\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+      ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : '// 3. Comportamento humano DESATIVADO'}
 
-            ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : ''}
+      // 4. Injeção de identidade ML (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('ml_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_model', profile.model);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_ml_device_id', profile.mlDeviceId);
+      localStorage.setItem('_ml_tracking_id', profile.mlTrackingId);
+    `;
 
-            // 4. Injeta perfil de hardware + identidade de device do Mercado Livre
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('ml_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            localStorage.setItem('_device_model', profile.model);
-            localStorage.setItem('_device_mac', profile.macAddress);
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_ml_device_id', profile.mlDeviceId);
-            localStorage.setItem('_ml_tracking_id', profile.mlTrackingId);
+    return wrapInSiteScript('Mercado Livre', body, enabledFeatures, '#ffe600');
+  };
 
-            console.log('%c✓ Mercado Livre Device & ${enabledFeatures.length} Módulos Injetados com Sucesso!', 'color: #ffe600; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0a0e27; font-family: monospace; color: #ffe600; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛡️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">MERCADO LIVRE BLINDAGEM & APP SIMULATOR ATIVO!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">${enabledFeatures.join(' • ')}<br/>Redirecionando para o Mercado Livre...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = 'https://www.mercadolivre.com.br';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção Mercado Livre:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro ao injetar Mercado Livre: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando Mercado Livre...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #0a0e27; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: #ffe600; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">🛡️</div>
-            <div style="margin-top: 20px; font-size: 18px; color: #ffe600;">Injetando ML Device & App Fingerprint...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success('Injeção Mercado Livre disparada com sucesso!');
-    } catch (e) {
-      console.error(e);
-      toast.error('Erro ao abrir aba de injeção Mercado Livre');
-    } finally {
-      setIsInjecting(false);
-    }
+  const handleAfterCopy = () => {
+    saveAccountRecord({
+      id: `ml_${Date.now()}`,
+      email: personalData!.email,
+      createdAt: new Date(),
+      status: 'pending',
+      deviceFingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      personalData: {
+        name: personalData!.fullName,
+        phone: personalData!.phone,
+        birthDate: personalData!.birthDate,
+        city: personalData!.city,
+        state: personalData!.state,
+      },
+      behaviorConfig: { minDelay: 600, maxDelay: 2500, typingSpeed: 130 },
+      notes: 'Mercado Livre — script in-site copiado para injeção manual',
+    });
   };
 
   return (
@@ -291,20 +251,28 @@ export default function MercadoLibreManager() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 pt-6 border-t border-yellow-400/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground">
-                {device ? '✓ Perfeito! Perfil gerado e pronto para injeção.' : '⚠️ Gere um perfil na etapa 1 antes de injetar.'}
-              </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!device || isInjecting}
-                className="w-full sm:w-auto bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-slate-950 font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir Mercado Livre com Blindagem
-              </Button>
-            </div>
+          <div className="border border-yellow-400/30 rounded-2xl p-6 bg-card/50 backdrop-blur-sm shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-yellow-200 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-green-400" />
+              3. Injeção In-Site
+            </h2>
+            <InSitePanel
+              siteName="Mercado Livre"
+              siteUrl="https://www.mercadolivre.com.br"
+              accentText="text-yellow-300"
+              accentHex="#ffe600"
+              disabled={!device}
+              features={[
+                'Motor Anti-Detecção 16+',
+                ...(simulateNativeApp ? ['Simulação App Mercado Livre'] : []),
+                ...(enableMLDeviceId ? ['Device ID & Tracking ML'] : []),
+                ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+              ]}
+              buildScript={buildInSiteScript}
+              onAfterCopy={handleAfterCopy}
+            />
           </div>
         </div>
       </div>

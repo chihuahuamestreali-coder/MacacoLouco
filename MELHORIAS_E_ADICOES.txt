@@ -192,5 +192,83 @@ SCRIPTS REFATORADOS (removidos document.write/redirect/overlay):
 - MELHORIAS_E_ADOES.txt                      (este arquivo)
 
 ================================================================
+6. MIGRAÇÃO PARA INJEÇÃO IN-SITE (ABA INTERMEDIÁRIA REMOVIDA)
+================================================================
+
+O método antigo (window.open('', '_blank') + document.write +
+redirect) era inútil: a aba about:blank tem ORIGEM diferente do
+site alvo (cross-origin), então localStorage/cookies/overrides
+nunca chegavam ao domínio real.
+
+Substituição pelo padrão INJEÇÃO IN-SITE:
+1. Copiar script (F12 -> Console -> colar -> Enter).
+2. Fallback bookmarklet para casos de "Unexpected identifier".
+3. Abrir o site oficial em nova aba (o script roda no origin certo).
+
+Páginas migradas (todas com pnpm check + pnpm build OK):
+- AliExpressManager.tsx      (aliexpress.com, #22c55e)
+- FacebookManager.tsx        (facebook.com/r.php, #1877f2)
+- InstagramManager.tsx       (instagram.com/accounts/emailsignup, #ec4899)
+- TemuManager.tsx            (temu.com, #ff6600)
+- MercadoLibreManager.tsx    (mercadolivre.com.br, #ffe600)
+- AmazonManager.tsx          (amazon.com.br, #ff9900)
+- ShopeeManager.tsx          (shopee.com.br, #ee4d2d)
+- DiscordSiteManager.tsx     (discord.com/register, #5865F2)
+- GitHubManager.tsx          (github.com/signup, #58A6FF)
+- TikTokManager.tsx          (tiktok.com, #ec4899)
+- ClaudeManager.tsx          (claude.ai/login, #cc00ff)
+- GmailManager.tsx           (accounts.google.com/signup, #ea4335)
+- ScoobyDooHub.tsx           (iFood/Zé Delivery com URL real + GPS)
+- PrivateTunnelsManager.tsx  (abertura direta do site, sem aba fantasma)
+- DarkSpecial.tsx            (SkynetChat/DeepHat/Venice/SimpleLogin/Nastia
+                              via InSitePanel; Uncensored/AtomicMail via
+                              ExternalServiceWorkspace; fundo #050505)
+- EmailManager.tsx           (auditado: já abria o site real; sem mudança)
+
+Funcionalidades preservadas durante a migração: shields Discord
+(superprops/webdriver/WebRTC), shields GitHub (device-id/unicorn),
+anti-fraude + relatório TikTok, GPS spoofing ScoobyDoo, histórico
+localStorage de cada página, saveAccountRecord.
+
+================================================================
+7. NOVOS MÓDULOS NO ESTILO MANUS (INJEÇÃO IN-SITE)
+================================================================
+
+Quatro novos menus seguindo o mesmo fluxo do Manus (copiar script ->
+abrir site -> colar no Console F12), com todas as ferramentas de
+injeção aplicadas por padrão em cada um: Motor Anti-Detecção 16+,
+Comportamento Humano, novo usuário IMEI/MAC, device ID, sessão e
+cookies ESPECÍFICOS de cada site, simulação de app nativo e persona.
+
+- MonkeyCode Master      (/monkeycode)  monkeycode-ai.net       ciano
+  MC_DEVICE_ID, MC_SESSION, MC_VISITOR_ID, MC_ANTI_BOT_TOKEN.
+- Base-44 Master         (/base44)      app.base44.com/register índigo
+  B44_DEVICE_ID, B44_SESSION, B44_FINGERPRINT_ID, B44_REGISTRATION.
+- Lovable Master         (/lovable)     lovable.dev/pt-br        violeta
+  LB_DEVICE_ID, LB_SESSION, LB_ANON_ID, LB_WORKSPACE_ID.
+- Emergente Master       (/emergente)   app.emergent.sh/landing/br âmbar
+  EMG_DEVICE_ID, EMG_SESSION, EMG_ANON_ID, EMG_UTM_SOURCE.
+
+Arquivos novos:
+- client/src/components/ManusStyleInjectionPage.tsx  (página padrão estilo Manus)
+- client/src/lib/monkeyCodeDeviceGenerator.ts
+- client/src/lib/base44DeviceGenerator.ts
+- client/src/lib/lovableDeviceGenerator.ts
+- client/src/lib/emergenteDeviceGenerator.ts
+- client/src/pages/MonkeyCodeManager.tsx
+- client/src/pages/Base44Manager.tsx
+- client/src/pages/LovableManager.tsx
+- client/src/pages/EmergenteManager.tsx
+
+================================================================
+8. CORREÇÕES DE MENU
+================================================================
+
+- Ursa: ao clicar no card na Home, o site tuamaeaquelaursa.com abre
+  DIRETO em guia nova (window.open), sem carregar página intermediária.
+  (bug corrigido: deviceInfo era chamado com currentDevice nulo em
+  ManusStyleInjectionPage, causando "Cannot read properties of null").
+
+================================================================
 FIM DO DOCUMENTO
 ================================================================

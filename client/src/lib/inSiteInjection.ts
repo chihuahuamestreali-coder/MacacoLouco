@@ -69,6 +69,33 @@ export function openSiteInNewTab(targetUrl: string): void {
 }
 
 /**
+ * Converte um script de injeção (IIFE já gerado por wrapInSiteScript) em um
+ * bookmarklet (javascript: URL). O usuário cria um favorito uma vez e clica
+ * nele com a guia do site aberta — evita o "allow pasting" do console.
+ *
+ * Encoda o corpo do script para ser seguro como URL de favorito.
+ */
+export function toBookmarklet(script: string): string {
+  const body = script
+    .replace(/^\/\*[\s\S]*?\*\/\s*/m, '')
+    .trim();
+  return 'javascript:' + encodeURIComponent(body);
+}
+
+/**
+ * Passos exibidos na UI para orientar o usuário no fluxo BOOKMARKLET
+ * (recomendado quando o console bloqueia o paste com "Unexpected identifier").
+ */
+export const BOOKMARKLET_STEPS: string[] = [
+  'Gere o perfil na Etapa 1',
+  'Clique em "Copiar Bookmarklet"',
+  'Crie um favorito no navegador (Ctrl+D) com o código copiado',
+  'Abra o site oficial (nova guia)',
+  'Clique no favorito com a guia do site aberta',
+  'Pronto: o script roda no domínio do site real',
+];
+
+/**
  * Passos exibidos na UI para orientar o usuário na injeção in-site.
  */
 export const IN_SITE_STEPS: string[] = [

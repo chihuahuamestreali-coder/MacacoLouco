@@ -1,23 +1,20 @@
 import ModuleGuide from '@/components/ModuleGuide';
 import { MODULE_GUIDES } from '@/lib/moduleGuides';
-/**
- * TikTok Manager Page - Gerenciador Avançado de Dispositivos para TikTok
- * Design: Cyberpunk Industrial com efeitos neon e animações de scan
- * 
- * INJEÇÃO REAL: Usa window.open para abrir a aba do TikTok e injetar o script
- * diretamente na nova aba via document.write antes do carregamento da página.
- */
 
-import { useState, useEffect, useRef } from 'react';
-import { generateTikTokDeviceProfile, generateTikTokSignupUrl, generateTikTokBookmarklet, generateTikTokAppBehaviorScript } from '@/lib/tiktokDeviceGenerator';
+import { useState, useEffect } from 'react';
+import { generateTikTokDeviceProfile, generateTikTokSignupUrl } from '@/lib/tiktokDeviceGenerator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { generateCompleteAntiDetectionScript } from '@/lib/cookieAndUserAgentManager';
 import { generateRandomUserAgent } from '@/lib/cookieAndUserAgentManager';
 import { saveAccountRecord, generatePerformanceReport, PerformanceReport } from '@/lib/accountHistoryManager';
 import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator';
+import { generateAdvancedAntiDetection } from '@/lib/advancedAntiDetection';
+import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Zap, Copy, Info, ExternalLink, Shield, BarChart3, Trash2, CheckCircle2, AlertCircle, Loader2, MonitorPlay, Smartphone } from 'lucide-react';
+import { Zap, Copy, BarChart3, Loader2, MonitorPlay, Smartphone, Shield, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -33,6 +30,7 @@ export default function TikTokManager() {
   const [antiFraudMode, setAntiFraudMode] = useState(true);
   // Simulação de App Nativo — ATIVADA POR PADRÃO (TikTokApp, como no Instagram/AliExpress)
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
+  const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [savedDevices, setSavedDevices] = useState<any[]>([]);
 
@@ -48,9 +46,6 @@ export default function TikTokManager() {
   }, []);
 
   const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
-  const [injectionStatus, setInjectionStatus] = useState<'idle' | 'opening' | 'injecting' | 'success' | 'error'>('idle');
-  const [injectionMessage, setInjectionMessage] = useState('');
-  const tiktokWindowRef = useRef<Window | null>(null);
 
   const persistDeviceHistory = (list: any[]) => {
     setSavedDevices(list);
@@ -64,102 +59,92 @@ export default function TikTokManager() {
     setPerformanceReport(report);
   }, []);
 
-  // Monitora a aba do TikTok
-  useEffect(() => {
-    if (!tiktokWindowRef.current || injectionStatus !== 'injecting') return;
-    
-    const checkInterval = setInterval(() => {
-      try {
-        const w = tiktokWindowRef.current;
-        if (!w || w.closed) {
-          clearInterval(checkInterval);
-          setInjectionStatus('error');
-          setInjectionMessage('Aba do TikTok foi fechada');
-          return;
-        }
-        
-        const doc = w.document;
-        if (doc && doc.readyState === 'complete') {
-          const overlay = doc.getElementById('device-injected-overlay');
-          if (overlay) {
-            clearInterval(checkInterval);
-            setInjectionStatus('success');
-            setInjectionMessage('Device injetado com sucesso no TikTok!');
-            toast.success('Device injetado no TikTok!');
-          }
-        }
-      } catch (e) {
-        clearInterval(checkInterval);
-        setInjectionStatus('success');
-        setInjectionMessage('Script injetado na aba do TikTok');
-        toast.success('Script injetado no TikTok!');
-      }
-    }, 1000);
-    
-    return () => clearInterval(checkInterval);
-  }, [injectionStatus]);
-
   const handleGenerateDevice = async () => {
     setIsGenerating(true);
-    setInjectionStatus('idle');
-    setInjectionMessage('');
-    
+
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
+
     const newDevice = generateTikTokDeviceProfile();
     const personalData = generatePersonalData();
     const userAgent = generateRandomUserAgent();
-    
+
     setCurrentDevice(newDevice);
     setCurrentPersonalData(personalData);
     setCurrentUserAgent(userAgent);
     persistDeviceHistory([newDevice, ...savedDevices]);
     setIsGenerating(false);
-    
+
     toast.success('Novo dispositivo TikTok gerado e salvo no histórico!', {
       description: `${newDevice.deviceName} • ${personalData.fullName}`,
     });
   };
 
-  /**
-   * INJEÇÃO REAL VIA WINDOW.OPEN
-   */
-  const handleOpenTikTokAndInject = () => {
-    if (!currentDevice || !currentPersonalData) {
-      toast.error('Gere um dispositivo primeiro!');
-      return;
-    }
-
-    setInjectionStatus('opening');
-    setInjectionMessage('Abrindo aba do TikTok...');
-
-    const signupUrl = generateTikTokSignupUrl(referralCode);
-    
-    // Gera o script completo de injeção
-    const bookmarklet = generateTikTokBookmarklet(currentDevice);
-    const appBehavior = generateTikTokAppBehaviorScript();
-    const code = bookmarklet.replace('javascript:', '');
-    
-    // Script de simulação de app nativo (ativado por padrão)
+  const buildInSiteScript = (): string => {
+    const dev = currentDevice;
+    const antiDetectionCode = generateAdvancedAntiDetection();
     const appSimCode = simulateNativeApp
-      ? generateNativeAppSimulationForProfile({ platform: 'tiktok', userAgent: currentUserAgent ? currentUserAgent.userAgent : '', imei: currentDevice.fingerprint })
+      ? generateNativeAppSimulationForProfile({ platform: 'tiktok', userAgent: currentUserAgent ? currentUserAgent.userAgent : dev.userAgent, imei: dev.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
       : '';
 
-    let fullCode = code;
-    if (antiFraudMode && currentUserAgent) {
-      const antiDetectionScript = generateCompleteAntiDetectionScript(currentUserAgent);
-      const simBlock = simulateNativeApp ? appSimCode + '\n' : '// Simulação de app nativo DESATIVADA\n';
-      fullCode = antiDetectionScript + '\n' + simBlock + appBehavior + '\n' + code;
-    } else if (simulateNativeApp) {
-      fullCode = appSimCode + '\n' + code;
-    }
-    
-    // Salva registro de conta
-    const accountRecord = {
+    const profileJson = JSON.stringify({
+      deviceName: dev.deviceName,
+      model: dev.model,
+      manufacturer: dev.manufacturer,
+      macAddress: dev.mac,
+      imei: dev.imei,
+      androidId: dev.androidId,
+      fingerprint: dev.fingerprint,
+      userAgent: currentUserAgent ? currentUserAgent.userAgent : dev.userAgent,
+      resolution: dev.resolution,
+      ramMb: dev.ramMb,
+      cpuCores: dev.cpuCores,
+      osName: dev.osName,
+      osVersion: dev.osVersion,
+    }).replace(/"/g, '\\"');
+
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['Simulação App Nativo TikTok (WebView & Bridge)'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
+      ...(antiFraudMode ? ['Modo Anti-Fraude Ativo'] : []),
+    ];
+
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
+
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — TikTokApp (WebView & Bridge)\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+
+      ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : '// 3. Comportamento humano DESATIVADO'}
+
+      ${antiFraudMode ? `// 4. Modo Anti-Fraude — máscara de automação adicional
+      try {
+        Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
+      } catch(e) { console.warn('anti-fraude', e); }
+      ` : '// 4. Modo Anti-Fraude DESATIVADO'}
+
+      // 5. Injeção de identidade TikTok (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('tiktok_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_model', profile.model);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_device_android_id', profile.androidId);
+    `;
+
+    return wrapInSiteScript('TikTok', body, enabledFeatures, '#ec4899');
+  };
+
+  const handleAfterCopy = () => {
+    saveAccountRecord({
       id: `tiktok_${Date.now()}`,
       email: currentPersonalData.email,
       createdAt: new Date(),
-      status: 'pending' as const,
+      status: 'pending',
       referralLink: referralCode,
       deviceFingerprint: currentDevice.fingerprint,
       userAgent: currentUserAgent.userAgent,
@@ -175,169 +160,7 @@ export default function TikTokManager() {
         maxDelay: antiFraudMode ? 5000 : 3000,
         typingSpeed: antiFraudMode ? 150 : 100,
       },
-      notes: `TikTok | Anti-fraude: ${antiFraudMode ? 'Ativo' : 'Inativo'}`,
-    };
-    
-    saveAccountRecord(accountRecord);
-    
-    // MÉTODO REAL DE INJEÇÃO
-    const newWindow = window.open('', '_blank');
-    
-    if (!newWindow) {
-      setInjectionStatus('error');
-      setInjectionMessage('Pop-up bloqueado pelo navegador');
-      toast.error('Pop-up bloqueado', {
-        description: 'Desative o bloqueador de pop-ups e tente novamente',
-      });
-      return;
-    }
-    
-    tiktokWindowRef.current = newWindow;
-    setInjectionStatus('injecting');
-    setInjectionMessage('Injetando script na aba do TikTok...');
-    
-    // Escreve a página intermediária
-    newWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Device Injector - TikTok</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', monospace;
-            background: #0a0e27;
-            color: #ec4899;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-          }
-          .injecting {
-            text-align: center;
-            animation: fadeIn 0.3s ease;
-          }
-          .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(236, 72, 153, 0.2);
-            border-top: 4px solid #ec4899;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-          }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-          h1 { font-size: 24px; margin-bottom: 10px; color: #ec4899; }
-          p { font-size: 14px; color: #ec489980; margin-bottom: 20px; }
-          .success-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 999999;
-            animation: fadeIn 0.5s ease;
-          }
-          .success-icon {
-            width: 80px; height: 80px;
-            background: #22c55e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: white;
-            margin-bottom: 20px;
-            animation: fadeIn 0.5s ease;
-          }
-          .success-overlay h2 { color: #22c55e; font-size: 28px; margin-bottom: 10px; }
-          .success-overlay p { color: #22c55e80; font-size: 16px; margin-bottom: 30px; }
-          .goto-btn {
-            padding: 14px 30px;
-            background: #22c55e;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            transition: all 0.2s ease;
-          }
-          .goto-btn:hover { background: #16a34a; transform: scale(1.05); }
-          .goto-btn:active { transform: scale(0.97); }
-        </style>
-      </head>
-      <body>
-        <div class="injecting" id="injecting-screen">
-          <div class="spinner"></div>
-          <h1>INJETANDO DEVICE...</h1>
-          <p>Aguardando script de injeção executar...</p>
-        </div>
-        
-        <script>
-          try {
-            // === SCRIPT DE INJEÇÃO ===
-            ${fullCode}
-            // === FIM DO SCRIPT ===
-            
-            document.getElementById('injecting-screen').style.display = 'none';
-            
-            const overlay = document.createElement('div');
-            overlay.id = 'device-injected-overlay';
-            overlay.className = 'success-overlay';
-            overlay.innerHTML = \`
-              <div class="success-icon">✓</div>
-              <h2>DEVICE INJETADO!</h2>
-              <p>Seu dispositivo foi mascarado com sucesso</p>
-              <button class="goto-btn" onclick="window.location.href='${signupUrl}'">
-                IR PARA TIKTOK →
-              </button>
-            \`;
-            document.body.appendChild(overlay);
-            
-            console.log('✓ Device injetado com sucesso!');
-          } catch(error) {
-            document.getElementById('injecting-screen').innerHTML = \`
-              <div style="color: #ef4444; text-align: center;">
-                <h1 style="font-size: 24px; margin-bottom: 10px;">ERRO NA INJEÇÃO</h1>
-                <p style="color: #ef444480; margin-bottom: 20px;">\${error.message}</p>
-                <button class="goto-btn" style="background: #ef4444;" onclick="window.location.href='${signupUrl}'">
-                  IR PARA TIKTOK MESMO ASSIM
-                </button>
-              </div>
-            \`;
-            console.error('Erro ao injetar:', error);
-          }
-        </script>
-      </body>
-      </html>
-    `);
-    
-    newWindow.document.close();
-    
-    toast.info('Script injetado na nova aba!', {
-      description: 'Aguarde a confirmação na aba do TikTok.',
-    });
-  };
-
-  const copyBookmarklet = () => {
-    if (!currentDevice) {
-      toast.error('Gere um dispositivo primeiro!');
-      return;
-    }
-
-    const bookmarklet = generateTikTokBookmarklet(currentDevice);
-    navigator.clipboard.writeText(bookmarklet);
-    toast.success('Bookmarklet copiado!', {
-      description: 'Cole na barra de endereço do navegador',
+      notes: `TikTok | Anti-fraude: ${antiFraudMode ? 'Ativo' : 'Inativo'} | script in-site copiado`,
     });
   };
 
@@ -360,16 +183,6 @@ Estado: ${currentPersonalData.state}
     toast.success('Dados pessoais copiados!', {
       description: 'Cole nos campos do formulário',
     });
-  };
-
-  const getStatusBg = () => {
-    switch (injectionStatus) {
-      case 'idle': return 'bg-secondary/30 border-border';
-      case 'opening': return 'bg-yellow-500/10 border-yellow-500/50';
-      case 'injecting': return 'bg-yellow-500/10 border-yellow-500/50';
-      case 'success': return 'bg-green-500/10 border-green-500/50';
-      case 'error': return 'bg-red-500/10 border-red-500/50';
-    }
   };
 
   return (
@@ -398,7 +211,7 @@ Estado: ${currentPersonalData.state}
                 ▌TIKTOK DEVICE MASTER▌
               </h1>
               <p className="text-xs lg:text-sm text-muted-foreground font-mono">
-                Gerenciador Anti-Fraude para TikTok • v2.0 (Injeção Real)
+                Gerenciador Anti-Fraude para TikTok • v2.1 (Injeção In-Site)
               </p>
             </div>
             <div className="flex gap-2">
@@ -421,47 +234,6 @@ Estado: ${currentPersonalData.state}
       </header>
 
       <main className="container max-w-7xl mx-auto px-4 py-8 relative z-10">
-        {/* PAINEL DE STATUS DA INJEÇÃO */}
-        <div className={`rounded-lg p-5 mb-8 border-2 transition-all ${
-          injectionStatus === 'success' ? 'bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-500/50' :
-          injectionStatus === 'error' ? 'bg-gradient-to-r from-red-900/30 to-rose-900/30 border-red-500/50' :
-          injectionStatus !== 'idle' ? 'bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border-yellow-500/50' :
-          'bg-gradient-to-r from-secondary/50 to-secondary/30 border-pink-500/30'
-        }`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-foreground font-mono flex items-center gap-2">
-              <MonitorPlay size={20} className={
-                injectionStatus === 'success' ? 'text-green-400' :
-                injectionStatus === 'error' ? 'text-red-400' :
-                'text-pink-400'
-              } />
-              ▌STATUS DA INJEÇÃO▌
-            </h3>
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
-              injectionStatus === 'success' ? 'bg-green-500/20 text-green-400' :
-              injectionStatus === 'error' ? 'bg-red-500/20 text-red-400' :
-              injectionStatus !== 'idle' ? 'bg-yellow-500/20 text-yellow-400' :
-              'bg-secondary text-muted-foreground'
-            }`}>
-              {injectionStatus === 'success' && <CheckCircle2 size={16} />}
-              {injectionStatus === 'error' && <AlertCircle size={16} />}
-              {(injectionStatus === 'opening' || injectionStatus === 'injecting') && <Loader2 size={16} className="animate-spin" />}
-              {injectionStatus === 'idle' && <Loader2 size={16} />}
-              {injectionStatus === 'idle' && 'Aguardando'}
-              {injectionStatus === 'opening' && 'Abrindo...'}
-              {injectionStatus === 'injecting' && 'Injetando...'}
-              {injectionStatus === 'success' && '✓ Sucesso'}
-              {injectionStatus === 'error' && '✗ Erro'}
-            </div>
-          </div>
-          
-          {injectionMessage && (
-            <div className={`p-3 rounded-lg border text-sm font-mono ${getStatusBg()}`}>
-              {injectionMessage}
-            </div>
-          )}
-        </div>
-
         {/* Info Banner */}
         <div className="neon-glow-pink rounded-lg p-4 mb-8 bg-secondary/50 border-2 border-pink-500/50">
           <div className="flex gap-3">
@@ -510,10 +282,33 @@ Estado: ${currentPersonalData.state}
           </div>
         </div>
 
+        <div className="neon-glow-pink rounded-lg p-4 mb-8 bg-secondary/50 border-2 border-pink-500/50">
+          <div className="flex gap-3">
+            <MonitorPlay size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+            <label className="flex-1 cursor-pointer" htmlFor="tiktok-human-behavior">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="tiktok-human-behavior"
+                  checked={enableHumanBehavior}
+                  onCheckedChange={(checked) => setEnableHumanBehavior(checked as boolean)}
+                  className="mt-0.5"
+                />
+                <div>
+                  <h3 className="font-bold text-cyan-400">Simulação de Comportamento Humano</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Injeta delays, movimentos de mouse naturais e scroll progressivo na sessão do TikTok.
+                    Ativa por padrão.
+                  </p>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
         {showHistory && performanceReport && (
           <div className="neon-glow rounded-lg p-6 bg-card border border-blue-400/30 mb-8">
             <h2 className="text-lg font-bold text-blue-400 mb-4 font-mono">▌RELATÓRIO DE DESEMPENHO▌</h2>
-            
+
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
               <div className="bg-secondary/30 rounded p-3 text-center">
                 <div className="text-2xl font-bold text-cyan-400">{performanceReport.totalAccounts}</div>
@@ -556,7 +351,7 @@ Estado: ${currentPersonalData.state}
                   disabled={isGenerating}
                   className="w-full mb-4 flex items-center justify-center gap-2 px-6 py-4 bg-pink-400/20 hover:bg-pink-400/40 text-pink-400 border-2 border-pink-400 rounded font-mono font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed neon-glow"
                 >
-                  <Zap size={20} />
+                  {isGenerating ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                   {isGenerating ? 'GERANDO...' : 'GERAR NOVO DISPOSITIVO'}
                 </button>
 
@@ -602,7 +397,7 @@ Estado: ${currentPersonalData.state}
                     <li>✓ User-Agent mobile TikTok</li>
                     <li>✓ Comportamento app-like</li>
                     <li>✓ Anti-detecção ativa</li>
-                    <li>✓ Injeção real (window.open)</li>
+                    <li>✓ Injeção in-site (console/bookmarklet)</li>
                   </ul>
                 </div>
               </div>
@@ -643,8 +438,16 @@ Estado: ${currentPersonalData.state}
                       <p className="text-foreground font-bold">{currentDevice.resolution}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground mb-1">RAM</p>
-                      <p className="text-foreground font-bold">{currentDevice.ramMb}GB</p>
+                      <p className="text-muted-foreground mb-1">IMEI</p>
+                      <p className="text-foreground font-bold break-all">{currentDevice.imei}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-1">MAC</p>
+                      <p className="text-foreground font-bold break-all">{currentDevice.mac}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground mb-1">ANDROID ID</p>
+                      <p className="text-foreground font-bold break-all">{currentDevice.androidId}</p>
                     </div>
                   </div>
                 </div>
@@ -685,56 +488,26 @@ Estado: ${currentPersonalData.state}
                   </div>
                 )}
 
-                {/* Injection Section */}
-                <div className="p-4 bg-secondary/30 rounded border border-pink-400/30 font-mono text-xs space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-green-400 font-bold mb-2">▶ INJETAR NO TIKTOK (INJEÇÃO REAL)</p>
-                    
-                    <button
-                      onClick={handleOpenTikTokAndInject}
-                      className={`w-full px-4 py-4 font-bold text-sm transition-all flex items-center justify-center gap-3 rounded border ${
-                        injectionStatus === 'success'
-                          ? 'bg-green-500/20 border-green-500 text-green-400'
-                          : 'bg-gradient-to-r from-pink-500/30 to-purple-500/30 hover:from-pink-500/50 hover:to-purple-500/50 border-pink-400 text-pink-300 neon-glow'
-                      }`}
-                    >
-                      <ExternalLink size={18} />
-                      {injectionStatus === 'success'
-                        ? '✓ INJETADO - ABRIR NOVO DEVICE'
-                        : 'ABRIR TIKTOK + INJETAR DEVICE'
-                      }
-                    </button>
-
-                    {/* Como funciona */}
-                    <div className="border-t border-pink-400/20 pt-3 mt-2">
-                      <p className="text-pink-400 font-bold mb-2">ℹ️ COMO FUNCIONA</p>
-                      <div className="bg-pink-400/10 rounded p-3 border border-pink-400/30 space-y-1 text-xs">
-                        <p className="text-pink-300">1. Clique no botão acima</p>
-                        <p className="text-pink-300">2. Uma <strong>nova aba</strong> abre com tela de "Injetando..."</p>
-                        <p className="text-pink-300">3. O script roda <strong>automaticamente</strong> (sem console)</p>
-                        <p className="text-pink-300">4. Tela verde "✓ DEVICE INJETADO" aparece</p>
-                        <p className="text-pink-300">5. Clique "IR PARA TIKTOK" e crie sua conta</p>
-                        <p className="text-yellow-300 mt-2 font-bold">⚠️ Se o pop-up for bloqueado, desative o bloqueador</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-pink-400/20 pt-3">
-                    <p className="text-pink-400 font-bold mb-2">📋 BOOKMARKLET (Alternativa)</p>
-                    <div className="flex gap-2">
-                      <div className="flex-1 bg-input rounded p-2 border border-pink-400/20 overflow-auto max-h-20">
-                        <code className="text-green-400 break-all text-xs">
-                          {generateTikTokBookmarklet(currentDevice).substring(0, 80)}...
-                        </code>
-                      </div>
-                      <button
-                        onClick={copyBookmarklet}
-                        className="flex items-center gap-1 px-2 py-1 bg-pink-400/20 hover:bg-pink-400/40 text-pink-400 rounded transition-colors flex-shrink-0"
-                      >
-                        <Copy size={12} />
-                      </button>
-                    </div>
-                  </div>
+                {/* Injection Section - In-Site */}
+                <div className="neon-glow rounded-lg p-6 bg-card border border-pink-400/30">
+                  <h3 className="text-lg font-bold text-pink-400 mb-4 font-mono">
+                    ▌INJEÇÃO IN-SITE▌
+                  </h3>
+                  <InSitePanel
+                    siteName="TikTok"
+                    siteUrl={generateTikTokSignupUrl(referralCode)}
+                    accentText="text-pink-400"
+                    accentHex="#ec4899"
+                    disabled={!currentDevice}
+                    features={[
+                      'Motor Anti-Detecção 16+',
+                      ...(simulateNativeApp ? ['Simulação App Nativo'] : []),
+                      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+                      ...(antiFraudMode ? ['Modo Anti-Fraude'] : []),
+                    ]}
+                    buildScript={buildInSiteScript}
+                    onAfterCopy={handleAfterCopy}
+                  />
                 </div>
               </div>
             )}
@@ -744,7 +517,7 @@ Estado: ${currentPersonalData.state}
 
       {/* Footer */}
       <footer className="border-t border-pink-400/30 mt-16 py-8 text-center text-xs text-muted-foreground font-mono">
-        <p>TikTok Device Master v2.0 • Injeção Real Implementada</p>
+        <p>TikTok Device Master v2.1 • Injeção In-Site Implementada</p>
         <p className="mt-2">⚠️ Use responsavelmente. Respeite os termos de serviço do TikTok.</p>
       </footer>
     </div>

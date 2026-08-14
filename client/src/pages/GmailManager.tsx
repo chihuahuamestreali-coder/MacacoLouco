@@ -3,20 +3,23 @@ import { MODULE_GUIDES } from '@/lib/moduleGuides';
 /**
  * Gmail Manager Page - Gerenciador de Dispositivos para Gmail
  * Design: Cyberpunk Industrial (Cores: Vermelho/Laranja do Gmail)
- * 
- * INJEÇÃO REAL: Usa window.open para abrir a aba do Gmail e injetar o script
- * diretamente na nova aba via document.write antes do carregamento da página.
+ *
+ * INJEÇÃO IN-SITE: o script é copiado e rodado no console da guia do site real
+ * (accounts.google.com), sem aba intermediária nem redirect.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { GmailDeviceProfile, generateGmailDeviceProfile, formatGmailDataForDisplay } from '@/lib/gmailDeviceGenerator';
-import { generateCompleteAntiDetectionScript, generateRandomUserAgent } from '@/lib/cookieAndUserAgentManager';
+import { generateCompleteAntiDetectionScript } from '@/lib/cookieAndUserAgentManager';
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator';
+import { generateAdvancedAntiDetection } from '@/lib/advancedAntiDetection';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { saveAccountRecord } from '@/lib/accountHistoryManager';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Zap, Copy, Info, Play, ExternalLink, CheckCircle2, AlertCircle, Loader2, MonitorPlay, User } from 'lucide-react';
+import { Zap, Copy, AlertCircle, Loader2, MonitorPlay, User, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -27,10 +30,8 @@ export default function GmailManager() {
   const [devices, setDevices] = useState<GmailDeviceProfile[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<GmailDeviceProfile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
-  const injectionWindowRef = useRef<Window | null>(null);
 
   // Persistência de histórico em localStorage (dados não somem ao fechar a aba)
   useEffect(() => {
@@ -93,109 +94,69 @@ export default function GmailManager() {
     toast.success('✓ Dados copiados para a área de transferência!');
   };
 
-  // Injetar no Gmail com window.open
-  const handleInjectAndOpen = async () => {
-    if (!selectedDevice) {
-      toast.error('✗ Selecione um dispositivo primeiro');
-      return;
-    }
+  // Script de injeção in-site (roda no domínio real do accounts.google.com)
+  const buildInSiteScript = (): string => {
+    const dev = selectedDevice!;
+    const nativeAppCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'gmail', userAgent: dev.userAgent, imei: dev.deviceFingerprint })
+      : '';
+    const antiDetectionScript = generateCompleteAntiDetectionScript({ userAgent: dev.userAgent } as any);
+    const advancedAntiDetection = generateAdvancedAntiDetection();
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 60, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-    setIsInjecting(true);
-    try {
-      // Abrir aba vazia
-      injectionWindowRef.current = window.open('', '_blank');
-      if (!injectionWindowRef.current) {
-        toast.error('✗ Pop-up bloqueado. Desative o bloqueador de pop-ups.');
-        setIsInjecting(false);
-        return;
-      }
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['Simulação App Nativo Gmail'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+      'Anti-detecção 13+ técnicas',
+    ];
 
-      // Gerar scripts locais de proteção e simulação
-      const nativeAppCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'gmail', userAgent: selectedDevice.userAgent, imei: selectedDevice.deviceFingerprint })
-        : '';
-      const antiDetectionScript = generateCompleteAntiDetectionScript({ userAgent: selectedDevice.userAgent } as any);
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 60, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
-        : '';
-      const gmailInjectionScript = `
-        (function() {
-          // Injetar dados do dispositivo
-          window.gmailDevice = ${JSON.stringify(selectedDevice)};
-          localStorage.setItem('gmailDeviceProfile', JSON.stringify(window.gmailDevice));
-          
-          // Simulação local de app nativo
-          ${nativeAppCode}
+    const cookiesJson = JSON.stringify(dev.cookies);
+    const deviceJson = JSON.stringify({
+      id: dev.id,
+      email: dev.email,
+      password: dev.password,
+      recoveryEmail: dev.recoveryEmail,
+      recoveryPhone: dev.recoveryPhone,
+      firstName: dev.firstName,
+      lastName: dev.lastName,
+      birthDate: dev.birthDate,
+      gender: dev.gender,
+      userAgent: dev.userAgent,
+      ipAddress: dev.ipAddress,
+      timezone: dev.timezone,
+      language: dev.language,
+      locale: dev.locale,
+      deviceFingerprint: dev.deviceFingerprint,
+    }).replace(/"/g, '\\"');
 
-          // Injetar proteção local
-          ${antiDetectionScript}
-          
-          ${enableHumanBehavior ? '// Comportamento humano simulado (delays, mouse, scroll)\n' + behaviorCode : '// Comportamento humano DESATIVADO'}
-          
-          // Injetar cookies
-          Object.entries(${JSON.stringify(selectedDevice.cookies)}).forEach(([key, value]) => {
-            document.cookie = key + '=' + value + '; path=/; domain=.google.com';
-          });
-          
-          console.log('✓ Gmail Device Injetado com Sucesso!');
-          document.body.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); font-family: monospace; color: #00ff00; font-size: 24px; text-align: center;"><div><div style="font-size: 48px; margin-bottom: 20px;">✓</div><div>DEVICE INJETADO!</div><div style="font-size: 14px; margin-top: 20px; color: #00aa00;">Gmail está pronto para criar conta</div></div></div>';
-        })();
-      `;
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${advancedAntiDetection}
 
-      // Escrever HTML + Script na aba
-      injectionWindowRef.current.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Injetando Gmail Device...</title>
-          <style>
-            body { margin: 0; padding: 0; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; }
-            .container { text-align: center; color: #00ff00; }
-            .spinner { font-size: 48px; animation: spin 1s linear infinite; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="spinner">⚡</div>
-            <div style="margin-top: 20px; font-size: 18px;">Injetando Device...</div>
-          </div>
-          <script>${gmailInjectionScript}</script>
-        </body>
-        </html>
-      `);
-      injectionWindowRef.current.document.close();
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Gmail & Bridge\n${nativeAppCode}` : '// 2. Simulação de app nativo DESATIVADA'}
 
-      // Registra sucesso no histórico global
-      saveAccountRecord({
-        id: `rec_${Date.now()}`,
-        email: selectedDevice.email,
-        createdAt: new Date(),
-        status: 'created',
-        deviceFingerprint: selectedDevice.userAgent,
-        userAgent: selectedDevice.userAgent,
-        personalData: {
-          name: `${selectedDevice.firstName} ${selectedDevice.lastName}`,
-          phone: selectedDevice.recoveryPhone,
-          birthDate: selectedDevice.birthDate,
-          city: '',
-          state: '',
-        },
-        behaviorConfig: { minDelay: 800, maxDelay: 3000, typingSpeed: 120 },
-        notes: 'Injeção concluída com sucesso',
-      } as any);
+      // 3. Anti-detecção completa (user agent + navegador)
+      ${antiDetectionScript}
 
-      // Aguardar 2 segundos e redirecionar
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      injectionWindowRef.current.location.href = 'https://accounts.google.com/signup';
-      
-      toast.success('✓ Device injetado! Abrindo Gmail...');
-    } catch (error) {
-      toast.error('✗ Erro ao injetar device');
-      console.error(error);
-    } finally {
-      setIsInjecting(false);
-    }
+      ${enableHumanBehavior ? `// 4. Comportamento humano simulado\n${behaviorCode}` : '// 4. Comportamento humano DESATIVADO'}
+
+      // 5. Injeção de identidade Gmail (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${deviceJson}");
+      window.gmailDevice = profile;
+      localStorage.setItem('gmailDeviceProfile', JSON.stringify(profile));
+
+      // 6. Injeção de cookies (mesmo domínio)
+      try {
+        Object.entries(${cookiesJson}).forEach(([key, value]) => {
+          document.cookie = key + '=' + value + '; path=/; domain=.google.com';
+        });
+      } catch(e) { console.warn('cookie inject', e); }
+    `;
+
+    return wrapInSiteScript('Gmail', body, enabledFeatures, '#ea4335');
   };
 
   return (
@@ -207,21 +168,19 @@ export default function GmailManager() {
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400 mb-2">
             GMAIL MASTER
           </h1>
-          <div className="flex flex-wrap items-center justify-between gap-4"><p className="text-slate-400">Gerenciador de Dispositivos para Gmail • v2.0 (Injeção Real)</p><Button type="button" variant="outline" onClick={() => setLocation('/')} className="border-red-400/40 text-red-200 hover:bg-red-400/10">← Página principal</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-4"><p className="text-slate-400">Gerenciador de Dispositivos para Gmail • v2.1 (Injeção In-Site)</p><Button type="button" variant="outline" onClick={() => setLocation('/')} className="border-red-400/40 text-red-200 hover:bg-red-400/10">← Página principal</Button></div>
         </div>
 
         {/* Status Box */}
         <div className="border border-red-500/50 rounded-lg p-6 mb-8 bg-red-950/20 backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <Zap className="text-red-400 animate-pulse" size={24} />
-            <h2 className="text-xl font-bold text-red-400">STATUS DA INJEÇÃO</h2>
+            <h2 className="text-xl font-bold text-red-400">STATUS</h2>
           </div>
           <div className="text-slate-300 space-y-2">
-            <p>✓ Novo: Injeção Real (v2.0)</p>
+            <p>✓ Novo: Injeção In-Site (v2.1) — script roda no domínio real do accounts.google.com</p>
             <p>✓ Bypass de SMS: Ativado (email de recuperação)</p>
-            <p>✓ Bypass de CAPTCHA: Ativado</p>
-            <p>✓ Anti-detecção: 13+ técnicas</p>
-            <p>✓ Injeção real (window.open): Ativada</p>
+            <p>✓ Anti-detecção: 16+ técnicas</p>
             <p>✓ Persistência de Histórico: Histórico salvo em localStorage (não se perde ao fechar a aba)</p>
             <p>✓ Histórico salvo: {devices.length} dispositivo(s)</p>
           </div>
@@ -233,7 +192,7 @@ export default function GmailManager() {
                       <div className="space-y-4">
             <label className="flex items-start gap-3 border border-red-400/30 rounded-md p-4 bg-secondary/20 cursor-pointer">
               <Checkbox checked={simulateNativeApp} onCheckedChange={(checked) => setSimulateNativeApp(checked as boolean)} className="mt-0.5" />
-              <div className="flex-1"><div className="font-semibold text-red-200">Simulação local de app Gmail</div><p className="text-xs text-muted-foreground mt-1">Adiciona metadados fictícios de WebView/app ao perfil local. Não acessa nem altera serviços externos.</p></div>
+              <div className="flex-1"><div className="font-semibold text-red-200">Simulação de app nativo Gmail</div><p className="text-xs text-muted-foreground mt-1">Injeta metadados de WebView/app no domínio real do Google para contornar a detecção "navegador vs app nativo".</p></div>
             </label>
             <label className="flex items-start gap-3 border border-cyan-500/40 rounded-md p-4 bg-secondary/20 cursor-pointer hover:bg-secondary/40 transition-colors">
               <Checkbox
@@ -273,7 +232,7 @@ export default function GmailManager() {
                   </>
                 ) : (
                   <>
-                    <Zap size={20} />
+                    <Sparkles size={20} />
                     GERAR NOVO DISPOSITIVO
                   </>
                 )}
@@ -354,23 +313,25 @@ export default function GmailManager() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleInjectAndOpen}
-                  disabled={isInjecting}
-                  className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  {isInjecting ? (
-                    <>
-                      <Loader2 className="animate-spin" size={20} />
-                      Injetando...
-                    </>
-                  ) : (
-                    <>
-                      <MonitorPlay size={20} />
-                      ABRIR GMAIL + INJETAR DEVICE
-                    </>
-                  )}
-                </button>
+                <div className="mt-4">
+                  <h4 className="text-sm font-bold text-red-400 mb-3 flex items-center gap-2">
+                    <MonitorPlay size={16} />
+                    INJEÇÃO IN-SITE
+                  </h4>
+                  <InSitePanel
+                    siteName="Gmail"
+                    siteUrl="https://accounts.google.com/signup"
+                    accentText="text-red-300"
+                    accentHex="#ea4335"
+                    disabled={!selectedDevice}
+                    features={[
+                      'Motor Anti-Detecção 16+',
+                      ...(simulateNativeApp ? ['Simulação App Nativo'] : []),
+                      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+                    ]}
+                    buildScript={buildInSiteScript}
+                  />
+                </div>
               </div>
             ) : (
               <div className="border border-slate-700 rounded-lg p-12 bg-slate-800/50 backdrop-blur flex items-center justify-center">

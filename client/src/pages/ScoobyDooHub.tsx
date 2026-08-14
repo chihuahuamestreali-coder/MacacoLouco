@@ -7,9 +7,11 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Utensils, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, MapPin, Beer, Pizza } from 'lucide-react';
+import { Utensils, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, MapPin, Beer, Pizza, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -42,15 +44,14 @@ export default function ScoobyDooHub() {
   const [device, setDevice] = useState<DeliveryDeviceProfile | null>(null);
   const [personalData, setPersonalData] = useState<ReturnType<typeof generatePersonalData> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
-  
+
   // Opções de Blindagem
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
   const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
   const [enableLocationSpoofing, setEnableLocationSpoofing] = useState(true);
   const [enableDeviceTokens, setEnableDeviceTokens] = useState(true);
-  
+
   const [historyCount, setHistoryCount] = useState(0);
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function ScoobyDooHub() {
     const newPerson = generatePersonalData();
     setDevice(newDev);
     setPersonalData(newPerson);
-    
+
     saveAccountRecord({
       id: `scooby_${activePlatform}_${Date.now()}`,
       email: newPerson.email,
@@ -82,7 +83,7 @@ export default function ScoobyDooHub() {
       behaviorConfig: { minDelay: 500, maxDelay: 2000, typingSpeed: 140 },
       notes: `${PLATFORM_CONFIG[activePlatform].name} — Hub Scooby-Doo`,
     });
-    
+
     setHistoryCount((count) => count + 1);
     setIsGenerating(false);
     toast.success(`Perfil ${PLATFORM_CONFIG[activePlatform].name} gerado!`, {
@@ -92,138 +93,97 @@ export default function ScoobyDooHub() {
 
   const capitalCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  const handleInjectAndOpen = async () => {
-    if (!device) {
-      toast.error('Gere um perfil primeiro!');
-      return;
-    }
-    setIsInjecting(true);
-    try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado!');
-        setIsInjecting(false);
-        return;
-      }
+  const buildInSiteScript = (): string => {
+    const config = PLATFORM_CONFIG[activePlatform];
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: activePlatform, userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 500, maxDelay: 2000, minTypingSpeed: 80, maxTypingSpeed: 200, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-      const config = PLATFORM_CONFIG[activePlatform];
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: activePlatform, userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 500, maxDelay: 2000, minTypingSpeed: 80, maxTypingSpeed: 200, enableMouseMovement: true, enableScrolling: true })
-        : '';
+    const profileJson = JSON.stringify({
+      imei: device!.imei,
+      androidId: device!.androidId,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      location: device!.location,
+      tokens: device!.deliveryTokens
+    }).replace(/"/g, '\\"');
 
-      const profileJson = JSON.stringify({
-        imei: device.imei,
-        androidId: device.androidId,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        location: device.location,
-        tokens: device.deliveryTokens
-      }).replace(/"/g, '\\"');
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? [`App Nativo ${config.name}`] : []),
+      ...(enableLocationSpoofing ? ['GPS Spoofing Ativo'] : []),
+      ...(enableDeviceTokens ? ['Device Tokens Blindados'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+    ];
 
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(simulateNativeApp ? [`App Nativo ${config.name}`] : []),
-        ...(enableLocationSpoofing ? ['GPS Spoofing Ativo'] : []),
-        ...(enableDeviceTokens ? ['Device Tokens Blindados'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
-      ];
+    const gpsSpoof = enableLocationSpoofing
+      ? `try {
+        const loc = { lat: ${device!.location.lat}, lng: ${device!.location.lng}, acc: ${device!.location.accuracy} };
+        navigator.geolocation.getCurrentPosition = function(success) {
+          success({
+            coords: {
+              latitude: loc.lat,
+              longitude: loc.lng,
+              accuracy: loc.acc,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null
+            },
+            timestamp: Date.now()
+          });
+        };
+        console.log('%c📍 GPS Spoofing Ativo: ' + loc.lat + ', ' + loc.lng, 'color: ${config.color}; font-weight: bold;');
+      } catch(e) {}`
+      : '// GPS Spoofing DESATIVADO';
 
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Motor Anti-Detecção
-            ${antiDetectionCode}
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
 
-            // 2. Simulação App Nativo
-            ${simulateNativeApp ? appSimCode : ''}
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — ${config.name}\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
 
-            // 3. Comportamento Humano
-            ${enableHumanBehavior ? behaviorCode : ''}
+      ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : '// 3. Comportamento humano DESATIVADO'}
 
-            // 4. GPS Spoofing
-            ${enableLocationSpoofing ? `
-              try {
-                const loc = { lat: ${device.location.lat}, lng: ${device.location.lng}, acc: ${device.location.accuracy} };
-                navigator.geolocation.getCurrentPosition = function(success) {
-                  success({
-                    coords: {
-                      latitude: loc.lat,
-                      longitude: loc.lng,
-                      accuracy: loc.acc,
-                      altitude: null,
-                      altitudeAccuracy: null,
-                      heading: null,
-                      speed: null
-                    },
-                    timestamp: Date.now()
-                  });
-                };
-                console.log('%c📍 GPS Spoofing Ativo: ' + loc.lat + ', ' + loc.lng, 'color: ${config.color}; font-weight: bold;');
-              } catch(e) {}
-            ` : ''}
+      // 4. GPS Spoofing (NO DOMÍNIO REAL)
+      ${gpsSpoof}
 
-            // 5. Injeção de Identidade
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('${activePlatform}_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_device_android_id', profile.androidId);
-            
-            ${enableDeviceTokens ? `
-              localStorage.setItem('${activePlatform}_did', profile.tokens.deviceId);
-              localStorage.setItem('${activePlatform}_sid', profile.tokens.sessionToken);
-            ` : ''}
+      // 5. Injeção de identidade ${config.name}
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('${activePlatform}_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_device_android_id', profile.androidId);
+      ${enableDeviceTokens ? `
+      localStorage.setItem('${activePlatform}_did', profile.tokens.deviceId);
+      localStorage.setItem('${activePlatform}_sid', profile.tokens.sessionToken);
+      ` : ''}
+    `;
 
-            console.log('%c✓ ${config.name} Injetado com Sucesso!', 'color: ${config.color}; font-weight: bold; font-size: 16px;');
+    return wrapInSiteScript(config.name, body, enabledFeatures, config.color);
+  };
 
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #070c1f; font-family: monospace; color: ${config.color}; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛵</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">${config.name.toUpperCase()} BLINDAGEM ATIVA!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">${enabledFeatures.join(' • ')}<br/>Redirecionando para ${config.name}...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = '${config.url}';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando ${config.name}...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #070c1f; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: ${config.color}; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">🛵</div>
-            <div style="margin-top: 20px; font-size: 18px;">Injetando Delivery Device & GPS Shield...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success(`${config.name} disparado!`);
-    } catch (e) {
-      toast.error('Erro ao abrir aba de injeção');
-    } finally {
-      setIsInjecting(false);
-    }
+  const handleAfterCopy = () => {
+    saveAccountRecord({
+      id: `scooby_${activePlatform}_${Date.now()}`,
+      email: personalData!.email,
+      createdAt: new Date(),
+      status: 'pending',
+      deviceFingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      personalData: {
+        name: personalData!.fullName,
+        phone: personalData!.phone,
+        birthDate: personalData!.birthDate,
+        city: personalData!.city,
+        state: personalData!.state,
+      },
+      behaviorConfig: { minDelay: 500, maxDelay: 2000, typingSpeed: 140 },
+      notes: `${PLATFORM_CONFIG[activePlatform].name} — Hub Scooby-Doo — script in-site copiado`,
+    });
   };
 
   return (
@@ -292,6 +252,32 @@ export default function ScoobyDooHub() {
                 <div className="md:col-span-2"><span className="text-muted-foreground">User-Agent:</span> <div className="p-2 mt-1 rounded bg-slate-950 font-mono text-[10px] text-primary/80 break-all">{device.userAgent}</div></div>
               </div>
             )}
+
+            {personalData && (
+              <div className="mt-4 p-4 rounded-xl bg-background/80 border border-border/20 relative text-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className={`font-bold flex items-center gap-2 ${PLATFORM_CONFIG[activePlatform].accent}`}>
+                    <User className="w-4 h-4" /> Persona Sintética para Cadastro
+                  </h3>
+                  <Button variant="ghost" size="sm" className="h-7 text-slate-300 hover:bg-border/40" onClick={() => setShowPersona(!showPersona)}>
+                    {showPersona ? <EyeOff className="w-3.5 h-3.5 mr-1" /> : <Eye className="w-3.5 h-3.5 mr-1" />}
+                    {showPersona ? 'Ocultar' : 'Revelar'}
+                  </Button>
+                </div>
+                {showPersona ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div><span className="text-muted-foreground">Nome:</span> <span className="font-bold text-slate-200">{personalData.fullName}</span></div>
+                    <div><span className="text-muted-foreground">Email:</span> <span className="font-mono text-slate-200">{personalData.email}</span></div>
+                    <div><span className="text-muted-foreground">Telefone:</span> <span className="font-mono text-slate-200">{personalData.phone}</span></div>
+                    <div><span className="text-muted-foreground">Nascimento:</span> <span className="text-slate-200">{personalData.birthDate}</span></div>
+                    <div><span className="text-muted-foreground">CPF:</span> <span className="font-mono text-slate-200">{personalData.cpf}</span></div>
+                    <div><span className="text-muted-foreground">Cidade/UF:</span> <span className="text-slate-200">{personalData.city} / {personalData.state}</span></div>
+                  </div>
+                ) : (
+                  <p className="text-slate-500 italic">Clique em "Revelar" para ver a persona sintética gerada (dados fictícios de teste).</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className={`border ${PLATFORM_CONFIG[activePlatform].border} rounded-2xl p-6 bg-card/50 backdrop-blur-sm shadow-xl`}>
@@ -329,20 +315,29 @@ export default function ScoobyDooHub() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 pt-6 border-t border-border/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground">
-                {device ? '✓ Pronto para injeção segura.' : '⚠️ Gere um perfil para ativar a blindagem.'}
-              </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!device || isInjecting}
-                className={`w-full sm:w-auto ${activePlatform === 'ifood' ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2`}
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir {PLATFORM_CONFIG[activePlatform].name}
-              </Button>
-            </div>
+          <div className={`border ${PLATFORM_CONFIG[activePlatform].border} rounded-2xl p-6 bg-card/50 backdrop-blur-sm shadow-xl`}>
+            <h2 className={`text-xl font-bold mb-4 ${PLATFORM_CONFIG[activePlatform].accent} flex items-center gap-2`}>
+              <Zap className="w-5 h-5 text-green-400" />
+              3. Injeção In-Site
+            </h2>
+            <InSitePanel
+              siteName={PLATFORM_CONFIG[activePlatform].name}
+              siteUrl={PLATFORM_CONFIG[activePlatform].url}
+              accentText={PLATFORM_CONFIG[activePlatform].accent}
+              accentHex={PLATFORM_CONFIG[activePlatform].color}
+              disabled={!device}
+              features={[
+                'Motor Anti-Detecção 16+',
+                ...(simulateNativeApp ? [`App Nativo ${PLATFORM_CONFIG[activePlatform].name}`] : []),
+                ...(enableLocationSpoofing ? ['GPS Spoofing'] : []),
+                ...(enableDeviceTokens ? ['Device Tokens'] : []),
+                ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+              ]}
+              buildScript={buildInSiteScript}
+              onAfterCopy={handleAfterCopy}
+            />
           </div>
         </div>
       </div>

@@ -6,19 +6,21 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Github, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff } from 'lucide-react';
+import { Github, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
-const GITHUB_SIGNUP_URL = 'https://github.com/signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F&source=header-home';
+const GITHUB_SIGNUP_URL = 'https://github.com/signup';
 
 export default function GitHubManager() {
   const [, setLocation] = useLocation();
   const [personalData, setPersonalData] = useState<ReturnType<typeof generatePersonalData> | null>(null);
+  const [device, setDevice] = useState<ReturnType<typeof buildGitHubDeviceProfile> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
   const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
@@ -51,6 +53,7 @@ export default function GitHubManager() {
     await new Promise(r => setTimeout(r, 800));
     const dev = buildGitHubDeviceProfile();
     const newPerson = generatePersonalData();
+    setDevice(dev);
     setPersonalData(newPerson);
     saveAccountRecord({
       id: `gh_${Date.now()}`,
@@ -76,161 +79,120 @@ export default function GitHubManager() {
     });
   };
 
-  const handleInjectAndOpen = async () => {
-    if (!personalData) {
-      toast.error('Gere um perfil GitHub primeiro!');
-      return;
-    }
-    setIsInjecting(true);
-    try {
-      const dev = buildGitHubDeviceProfile();
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado! Permita pop-ups no navegador.');
-        setIsInjecting(false);
-        return;
-      }
+  const buildInSiteScript = (): string => {
+    const dev = device!;
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'github', userAgent: dev.userAgent, imei: dev.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'github', userAgent: dev.userAgent, imei: dev.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
-        : '';
+    const profileJson = JSON.stringify({
+      deviceId: dev.deviceId,
+      macAddress: dev.macAddress,
+      imei: dev.imei,
+      fingerprint: dev.fingerprint,
+      userAgent: dev.userAgent,
+    }).replace(/"/g, '\\"');
 
-      const profileJson = JSON.stringify({
-        deviceId: dev.deviceId,
-        macAddress: dev.macAddress,
-        imei: dev.imei,
-        fingerprint: dev.fingerprint,
-        userAgent: dev.userAgent,
-      }).replace(/"/g, '\\"');
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(enableFingerprintShield ? ['Spoofing de Fingerprint & Canvas/WebGL'] : []),
+      ...(enableAntiBot ? ['Shield Anti-Bot GitHub (Device ID, Telemetria, Anti-Abuse)'] : []),
+      ...(simulateNativeApp ? ['Simulação App GitHub (WebView & Bridge)'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
+    ];
 
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(enableFingerprintShield ? ['Spoofing de Fingerprint & Canvas/WebGL'] : []),
-        ...(enableAntiBot ? ['Shield Anti-Bot GitHub (Device ID, Telemetria, Anti-Abuse)'] : []),
-        ...(simulateNativeApp ? ['Simulação App GitHub (WebView & Bridge)'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
-      ];
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
 
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Executa motor anti-detecção avançado (16+ ferramentas)
-            ${antiDetectionCode}
+      ${enableFingerprintShield ? `// 2. Spoofing de fingerprint (navigator, canvas, webgl, audio, hardware)
+      try {
+        const randHex = n => Array.from({length: n}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        Object.defineProperty(navigator, 'hardwareConcurrency', { value: Math.floor(Math.random()*8)+4, configurable: true });
+        Object.defineProperty(navigator, 'deviceMemory', { value: [4,8,16][Math.floor(Math.random()*3)], configurable: true });
+        Object.defineProperty(navigator, 'language', { value: 'en-US', configurable: true });
+        Object.defineProperty(navigator, 'languages', { value: ['en-US','en'], configurable: true });
+        Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true });
+        if (window.screen) {
+          Object.defineProperty(screen, 'colorDepth', { value: 24, configurable: true });
+          Object.defineProperty(screen, 'pixelDepth', { value: 24, configurable: true });
+        }
+      } catch(e) { console.warn('fingerprint shield', e); }
+      ` : '// 2. Spoofing de fingerprint DESATIVADO'}
 
-            ${enableFingerprintShield ? `// 2. Spoofing de fingerprint (navigator, canvas, webgl, audio, hardware)
-              try {
-                const randHex = n => Array.from({length: n}, () => Math.floor(Math.random()*16).toString(16)).join('');
-                Object.defineProperty(navigator, 'hardwareConcurrency', { value: Math.floor(Math.random()*8)+4, configurable: true });
-                Object.defineProperty(navigator, 'deviceMemory', { value: [4,8,16][Math.floor(Math.random()*3)], configurable: true });
-                Object.defineProperty(navigator, 'language', { value: 'en-US', configurable: true });
-                Object.defineProperty(navigator, 'languages', { value: ['en-US','en'], configurable: true });
-                Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true });
-                if (window.screen) {
-                  Object.defineProperty(screen, 'colorDepth', { value: 24, configurable: true });
-                  Object.defineProperty(screen, 'pixelDepth', { value: 24, configurable: true });
-                }
-              } catch(e) { console.warn('fingerprint shield', e); }
-            ` : '// 2. Spoofing de fingerprint DESATIVADO'}
+      ${enableAntiBot ? `// 3. Shield Anti-Bot GitHub — device ID, telemetria e detecção de automação
+      try {
+        const randHex = n => Array.from({length: n}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        // Device ID sintético que o GitHub usa para telemetria de abuso
+        const ghDeviceId = randHex(32);
+        localStorage.setItem('_gh_og_device_id', ghDeviceId);
+        localStorage.setItem('_gh_unicorn_session', randHex(24));
+        localStorage.setItem('_gh_user_session', randHex(40));
+        // Previne detecção de automação (webdriver / headless)
+        Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
+        if (window.chrome && window.chrome.runtime) {
+          Object.defineProperty(navigator, 'userAgentData', {
+            value: { brands: [{ brand: 'Google Chrome', version: '126' }, { brand: 'Not:A-Brand', version: '8' }, { brand: 'Chromium', version: '126' }], mobile: false, platform: 'Windows' },
+            configurable: true
+          });
+        }
+        // WebRTC: IP interno não vazado
+        const origRTCPeerConnection = window.RTCPeerConnection;
+        if (origRTCPeerConnection) {
+          window.RTCPeerConnection = function() {
+            const pc = new origRTCPeerConnection(arguments[0] || {});
+            const noop = () => {};
+            pc.createDataChannel = noop;
+            pc.createOffer = () => Promise.resolve({ sdp: '', type: 'offer' });
+            pc.setLocalDescription = noop;
+            pc.setRemoteDescription = noop;
+            pc.addIceCandidate = noop;
+            return pc;
+          };
+          window.RTCPeerConnection.prototype = origRTCPeerConnection.prototype;
+        }
+      } catch(e) { console.warn('anti-bot shield', e); }
+      ` : '// 3. Shield Anti-Bot GitHub DESATIVADO'}
 
-            ${enableAntiBot ? `// 3. Shield Anti-Bot GitHub — device ID, telemetria e detecção de automação
-              try {
-                const randHex = n => Array.from({length: n}, () => Math.floor(Math.random()*16).toString(16)).join('');
-                // Device ID sintético que o GitHub usa para telemetria de abuso
-                const ghDeviceId = randHex(32);
-                localStorage.setItem('_gh_og_device_id', ghDeviceId);
-                localStorage.setItem('_gh_unicorn_session', randHex(24));
-                localStorage.setItem('_gh_user_session', randHex(40));
-                // Previne detecção de automação (webdriver / headless)
-                Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
-                if (window.chrome && window.chrome.runtime) {
-                  Object.defineProperty(navigator, 'userAgentData', {
-                    value: { brands: [{ brand: 'Google Chrome', version: '126' }, { brand: 'Not:A-Brand', version: '8' }, { brand: 'Chromium', version: '126' }], mobile: false, platform: 'Windows' },
-                    configurable: true
-                  });
-                }
-                // WebRTC: IP interno não vazado
-                const origRTCPeerConnection = window.RTCPeerConnection;
-                if (origRTCPeerConnection) {
-                  window.RTCPeerConnection = function() {
-                    const pc = new origRTCPeerConnection(arguments[0] || {});
-                    const noop = () => {};
-                    pc.createDataChannel = noop;
-                    pc.createOffer = () => Promise.resolve({ sdp: '', type: 'offer' });
-                    pc.setLocalDescription = noop;
-                    pc.setRemoteDescription = noop;
-                    pc.addIceCandidate = noop;
-                    return pc;
-                  };
-                  window.RTCPeerConnection.prototype = origRTCPeerConnection.prototype;
-                }
-              } catch(e) { console.warn('anti-bot shield', e); }
-            ` : '// 3. Shield Anti-Bot GitHub DESATIVADO'}
+      ${simulateNativeApp ? `// 4. SIMULAÇÃO DE APP NATIVO — GitHub WebView & Bridge\n${appSimCode}` : '// 4. Simulação de app nativo DESATIVADA'}
 
-            ${simulateNativeApp ? `// 4. SIMULAÇÃO DE APP NATIVO — GitHub WebView & Bridge\n${appSimCode}` : '// 4. Simulação de app nativo DESATIVADA'}
+      ${enableHumanBehavior ? `// 5. Comportamento humano simulado\n${behaviorCode}` : '// 5. Comportamento humano DESATIVADO'}
 
-            ${enableHumanBehavior ? `// 5. Comportamento humano simulado\n${behaviorCode}` : ''}
+      // 6. Injeção de identidade GitHub (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('github_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_id', profile.deviceId);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_gh_device_id', profile.deviceId);
+    `;
 
-            // 6. Injeta perfil de device GitHub
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('github_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            localStorage.setItem('_device_id', profile.deviceId);
-            localStorage.setItem('_device_mac', profile.macAddress);
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_gh_device_id', profile.deviceId);
+    return wrapInSiteScript('GitHub', body, enabledFeatures, '#58A6FF');
+  };
 
-            console.log('%c✓ GitHub Manager & ${enabledFeatures.length} Módulos Injetados com Sucesso!', 'color: #58A6FF; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0d1117; font-family: monospace; color: #58A6FF; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛡️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">GITHUB SIGNUP BLINDADO & APP SIMULATOR ATIVO!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px; color: #8b949e;">${enabledFeatures.join(' • ')}<br/>Redirecionando para o cadastro do GitHub...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = '${GITHUB_SIGNUP_URL}';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção GitHub:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro ao injetar GitHub: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando GitHub...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #0d1117; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: #58A6FF; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">🛡️</div>
-            <div style="margin-top: 20px; font-size: 18px; color: #58A6FF;">Injetando GitHub Device & Anti-Bot Shield...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success('Injeção GitHub disparada com sucesso!');
-    } catch (e) {
-      console.error(e);
-      toast.error('Erro ao abrir aba de injeção GitHub');
-    } finally {
-      setIsInjecting(false);
-    }
+  const handleAfterCopy = () => {
+    saveAccountRecord({
+      id: `gh_${Date.now()}`,
+      email: personalData!.email,
+      createdAt: new Date(),
+      status: 'pending',
+      deviceFingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      personalData: {
+        name: personalData!.fullName,
+        phone: personalData!.phone,
+        birthDate: personalData!.birthDate,
+        city: personalData!.city,
+        state: personalData!.state,
+      },
+      behaviorConfig: { minDelay: 600, maxDelay: 2500, typingSpeed: 130 },
+      notes: 'GitHub — script in-site copiado para injeção manual',
+    });
   };
 
   return (
@@ -267,6 +229,16 @@ export default function GitHubManager() {
               {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
               Gerar Perfil GitHub
             </Button>
+
+            {device && (
+              <div className="mt-6 p-4 rounded-xl bg-background/80 border border-slate-500/20 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div><span className="text-muted-foreground">Device ID:</span> <span className="font-mono text-slate-200">{device.deviceId}</span></div>
+                <div><span className="text-muted-foreground">Fingerprint:</span> <span className="font-mono text-slate-200">{device.fingerprint}</span></div>
+                <div><span className="text-muted-foreground">MAC Address:</span> <span className="font-mono text-slate-200">{device.macAddress}</span></div>
+                <div><span className="text-muted-foreground">IMEI:</span> <span className="font-mono text-slate-200">{device.imei}</span></div>
+                <div className="md:col-span-2"><span className="text-muted-foreground">User-Agent:</span> <div className="p-2 mt-1 rounded bg-slate-950 font-mono text-[11px] text-slate-200 break-all">{device.userAgent}</div></div>
+              </div>
+            )}
 
             {personalData && (
               <div className="mt-4 p-4 rounded-xl bg-background/80 border border-slate-500/20 relative text-xs">
@@ -350,20 +322,29 @@ export default function GitHubManager() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 pt-6 border-t border-slate-500/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground">
-                {personalData ? '✓ Perfeito! Perfil gerado e pronto para injeção.' : '⚠️ Gere um perfil na etapa 1 antes de injetar.'}
-              </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!personalData || isInjecting}
-                className="w-full sm:w-auto bg-gradient-to-r from-slate-500 to-slate-700 hover:from-slate-600 hover:to-slate-800 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir Cadastro GitHub com Blindagem
-              </Button>
-            </div>
+          <div className="border border-slate-500/30 rounded-2xl p-6 bg-card/50 backdrop-blur-sm shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-slate-100 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-green-400" />
+              3. Injeção In-Site
+            </h2>
+            <InSitePanel
+              siteName="GitHub"
+              siteUrl={GITHUB_SIGNUP_URL}
+              accentText="text-slate-200"
+              accentHex="#58A6FF"
+              disabled={!device}
+              features={[
+                'Motor Anti-Detecção 16+',
+                ...(enableFingerprintShield ? ['Spoofing Fingerprint'] : []),
+                ...(enableAntiBot ? ['Shield Anti-Abuse'] : []),
+                ...(simulateNativeApp ? ['Simulação App'] : []),
+                ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+              ]}
+              buildScript={buildInSiteScript}
+              onAfterCopy={handleAfterCopy}
+            />
           </div>
         </div>
       </div>

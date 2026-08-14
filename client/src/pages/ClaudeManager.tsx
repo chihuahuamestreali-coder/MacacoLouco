@@ -3,19 +3,22 @@ import { MODULE_GUIDES } from '@/lib/moduleGuides';
 /**
  * Claude Manager Page - Gerenciador de Dispositivos para Claude
  * Design: Cyberpunk Industrial (Cores: Roxo/Magenta)
- * 
- * INJEÇÃO REAL: Usa window.open para abrir a aba do Claude e injetar o script
- * diretamente na nova aba via document.write antes do carregamento da página.
+ *
+ * INJEÇÃO IN-SITE: o script é copiado e rodado no console da guia do site real
+ * (claude.ai), sem aba intermediária nem redirect.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ClaudeDeviceProfile, generateClaudeDeviceProfile, formatClaudeDataForDisplay } from '@/lib/claudeDeviceGenerator';
-import { generateCompleteAntiDetectionScript, generateRandomUserAgent } from '@/lib/cookieAndUserAgentManager';
+import { generateCompleteAntiDetectionScript } from '@/lib/cookieAndUserAgentManager';
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator';
-import { Button } from '@/components/ui/button';
+import { generateAdvancedAntiDetection } from '@/lib/advancedAntiDetection';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Zap, Copy, Info, Play, ExternalLink, CheckCircle2, AlertCircle, Loader2, MonitorPlay, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Zap, Copy, AlertCircle, Loader2, MonitorPlay, User, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -26,10 +29,8 @@ export default function ClaudeManager() {
   const [devices, setDevices] = useState<ClaudeDeviceProfile[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<ClaudeDeviceProfile | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
-  const injectionWindowRef = useRef<Window | null>(null);
 
   // Persistência de histórico em localStorage (dados não somem ao fechar a aba)
   useEffect(() => {
@@ -74,91 +75,67 @@ export default function ClaudeManager() {
     toast.success('✓ Dados copiados para a área de transferência!');
   };
 
-  // Injetar no Claude com window.open
-  const handleInjectAndOpen = async () => {
-    if (!selectedDevice) {
-      toast.error('✗ Selecione um dispositivo primeiro');
-      return;
-    }
+  // Script de injeção in-site (roda no domínio real do claude.ai)
+  const buildInSiteScript = (): string => {
+    const dev = selectedDevice!;
+    const nativeAppCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'claude', userAgent: dev.userAgent, imei: dev.deviceFingerprint })
+      : '';
+    const antiDetectionScript = generateCompleteAntiDetectionScript({ userAgent: dev.userAgent } as any);
+    const advancedAntiDetection = generateAdvancedAntiDetection();
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 60, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-    setIsInjecting(true);
-    try {
-      // Abrir aba vazia
-      injectionWindowRef.current = window.open('', '_blank');
-      if (!injectionWindowRef.current) {
-        toast.error('✗ Pop-up bloqueado. Desative o bloqueador de pop-ups.');
-        setIsInjecting(false);
-        return;
-      }
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['Simulação App Nativo Claude'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+      'Anti-detecção 13+ técnicas',
+    ];
 
-      // Gerar scripts locais de proteção e simulação
-      const nativeAppCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'claude', userAgent: selectedDevice.userAgent, imei: selectedDevice.deviceFingerprint })
-        : '';
-      const antiDetectionScript = generateCompleteAntiDetectionScript({ userAgent: selectedDevice.userAgent } as any);
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 60, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
-        : '';
-      const claudeInjectionScript = `
-        (function() {
-          // Injetar dados do dispositivo
-          window.claudeDevice = ${JSON.stringify(selectedDevice)};
-          localStorage.setItem('claudeDeviceProfile', JSON.stringify(window.claudeDevice));
-          sessionStorage.setItem('claudeSession', '${selectedDevice.sessionId}');
-          
-          // Simulação local de app nativo
-          ${nativeAppCode}
+    const cookiesJson = JSON.stringify(dev.cookies);
+    const deviceJson = JSON.stringify({
+      id: dev.id,
+      email: dev.email,
+      password: dev.password,
+      firstName: dev.firstName,
+      lastName: dev.lastName,
+      userAgent: dev.userAgent,
+      ipAddress: dev.ipAddress,
+      timezone: dev.timezone,
+      language: dev.language,
+      locale: dev.locale,
+      deviceFingerprint: dev.deviceFingerprint,
+      sessionId: dev.sessionId,
+    }).replace(/"/g, '\\"');
 
-          // Injetar proteção local
-          ${antiDetectionScript}
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${advancedAntiDetection}
 
-          ${enableHumanBehavior ? '// Comportamento humano simulado (delays, mouse, scroll)\n' + behaviorCode : '// Comportamento humano DESATIVADO'}
-          
-          // Injetar cookies
-          Object.entries(${JSON.stringify(selectedDevice.cookies)}).forEach(([key, value]) => {
-            document.cookie = key + '=' + value + '; path=/; domain=.claude.ai';
-          });
-          
-          console.log('✓ Claude Device Injetado com Sucesso!');
-          document.body.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a0033 0%, #330066 100%); font-family: monospace; color: #cc00ff; font-size: 24px; text-align: center;"><div><div style="font-size: 48px; margin-bottom: 20px;">✓</div><div>DEVICE INJETADO!</div><div style="font-size: 14px; margin-top: 20px; color: #9900ff;">Claude está pronto para criar conta</div></div></div>';
-        })();
-      `;
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Claude & Bridge\n${nativeAppCode}` : '// 2. Simulação de app nativo DESATIVADA'}
 
-      // Escrever HTML + Script na aba
-      injectionWindowRef.current.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Injetando Claude Device...</title>
-          <style>
-            body { margin: 0; padding: 0; background: linear-gradient(135deg, #1a0033 0%, #330066 100%); display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; }
-            .container { text-align: center; color: #cc00ff; }
-            .spinner { font-size: 48px; animation: spin 1s linear infinite; }
-            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="spinner">⚡</div>
-            <div style="margin-top: 20px; font-size: 18px;">Injetando Device...</div>
-          </div>
-          <script>${claudeInjectionScript}</script>
-        </body>
-        </html>
-      `);
-      injectionWindowRef.current.document.close();
+      // 3. Anti-detecção completa (user agent + navegador)
+      ${antiDetectionScript}
 
-      // Aguardar 2 segundos e redirecionar para a página principal do Claude
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      injectionWindowRef.current.location.href = 'https://claude.ai';
-      
-      toast.success('✓ Device injetado! Abrindo Claude...');
-    } catch (error) {
-      toast.error('✗ Erro ao injetar device');
-      console.error(error);
-    } finally {
-      setIsInjecting(false);
-    }
+      ${enableHumanBehavior ? `// 4. Comportamento humano simulado\n${behaviorCode}` : '// 4. Comportamento humano DESATIVADO'}
+
+      // 5. Injeção de identidade Claude (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${deviceJson}");
+      window.claudeDevice = profile;
+      localStorage.setItem('claudeDeviceProfile', JSON.stringify(profile));
+      sessionStorage.setItem('claudeSession', profile.sessionId);
+
+      // 6. Injeção de cookies (mesmo domínio)
+      try {
+        Object.entries(${cookiesJson}).forEach(([key, value]) => {
+          document.cookie = key + '=' + value + '; path=/; domain=.claude.ai';
+        });
+      } catch(e) { console.warn('cookie inject', e); }
+    `;
+
+    return wrapInSiteScript('Claude', body, enabledFeatures, '#cc00ff');
   };
 
   return (
@@ -170,22 +147,19 @@ export default function ClaudeManager() {
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 mb-2">
             CLAUDE MASTER
           </h1>
-          <div className="flex flex-wrap items-center justify-between gap-4"><p className="text-slate-400">Gerenciador de Dispositivos para Claude (Anthropic) • v2.0 (Injeção Real)</p><Button type="button" variant="outline" onClick={() => setLocation('/')} className="border-purple-400/40 text-purple-200 hover:bg-purple-400/10">← Página principal</Button></div>
+          <div className="flex flex-wrap items-center justify-between gap-4"><p className="text-slate-400">Gerenciador de Dispositivos para Claude (Anthropic) • v2.1 (Injeção In-Site)</p><Button type="button" variant="outline" onClick={() => setLocation('/')} className="border-purple-400/40 text-purple-200 hover:bg-purple-400/10">← Página principal</Button></div>
         </div>
 
         {/* Status Box */}
         <div className="border border-purple-500/50 rounded-lg p-6 mb-8 bg-purple-950/20 backdrop-blur">
           <div className="flex items-center gap-3 mb-4">
             <Zap className="text-purple-400 animate-pulse" size={24} />
-            <h2 className="text-xl font-bold text-purple-400">STATUS DA INJEÇÃO</h2>
+            <h2 className="text-xl font-bold text-purple-400">STATUS</h2>
           </div>
           <div className="text-slate-300 space-y-2">
-            <p>✓ Novo: Injeção Real (v2.0)</p>
+            <p>✓ Novo: Injeção In-Site (v2.1) — script roda no domínio real do claude.ai</p>
             <p>✓ Bypass de Verificação de Email: Ativado</p>
-            <p>✓ Bypass de Rate Limiting: Ativado</p>
-            <p>✓ Bypass de Detecção de Bot: Ativado</p>
-            <p>✓ Anti-detecção: 13+ técnicas</p>
-            <p>✓ Injeção real (window.open): Ativada</p>
+            <p>✓ Anti-detecção: 16+ técnicas</p>
             <p>✓ Persistência de Histórico: Ativada (dados salvos em localStorage)</p>
             <p>✓ Histórico salvo: {devices.length} dispositivo(s)</p>
           </div>
@@ -197,7 +171,7 @@ export default function ClaudeManager() {
                       <div className="space-y-4">
               <label className="flex items-start gap-3 border border-purple-400/30 rounded-md p-4 bg-secondary/20 cursor-pointer">
                 <Checkbox checked={simulateNativeApp} onCheckedChange={(checked) => setSimulateNativeApp(checked as boolean)} className="mt-0.5" />
-                <div className="flex-1"><div className="font-semibold text-purple-200">Simulação local de app Claude</div><p className="text-xs text-muted-foreground mt-1">Adiciona metadados fictícios de WebView/app ao perfil local. Não acessa nem altera serviços externos.</p></div>
+                <div className="flex-1"><div className="font-semibold text-purple-200">Simulação de app nativo Claude</div><p className="text-xs text-muted-foreground mt-1">Injeta metadados de WebView/app no domínio real do Claude para contornar a detecção "navegador vs app nativo".</p></div>
               </label>
               <label className="flex items-start gap-3 border border-cyan-500/40 rounded-md p-4 bg-secondary/20 cursor-pointer hover:bg-secondary/40 transition-colors">
               <Checkbox
@@ -237,7 +211,7 @@ export default function ClaudeManager() {
                   </>
                 ) : (
                   <>
-                    <Zap size={20} />
+                    <Sparkles size={20} />
                     GERAR NOVO DISPOSITIVO
                   </>
                 )}
@@ -318,23 +292,25 @@ export default function ClaudeManager() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleInjectAndOpen}
-                  disabled={isInjecting}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-slate-600 disabled:to-slate-600 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  {isInjecting ? (
-                    <>
-                      <Loader2 className="animate-spin" size={20} />
-                      Injetando...
-                    </>
-                  ) : (
-                    <>
-                      <MonitorPlay size={20} />
-                      ABRIR CLAUDE + INJETAR DEVICE
-                    </>
-                  )}
-                </button>
+                <div className="mt-4">
+                  <h4 className="text-sm font-bold text-purple-400 mb-3 flex items-center gap-2">
+                    <MonitorPlay size={16} />
+                    INJEÇÃO IN-SITE
+                  </h4>
+                  <InSitePanel
+                    siteName="Claude"
+                    siteUrl="https://claude.ai/login"
+                    accentText="text-purple-300"
+                    accentHex="#cc00ff"
+                    disabled={!selectedDevice}
+                    features={[
+                      'Motor Anti-Detecção 16+',
+                      ...(simulateNativeApp ? ['Simulação App Nativo'] : []),
+                      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+                    ]}
+                    buildScript={buildInSiteScript}
+                  />
+                </div>
               </div>
             ) : (
               <div className="border border-slate-700 rounded-lg p-12 bg-slate-800/50 backdrop-blur flex items-center justify-center">

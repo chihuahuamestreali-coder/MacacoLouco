@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
-import ModuleGuide from '@/components/ModuleGuide';
 import ExternalServiceWorkspace from '@/components/ExternalServiceWorkspace';
+import InSitePanel from '@/components/InSitePanel';
 import { EXTERNAL_SERVICES } from '@/lib/externalServiceCatalog';
-import { MODULE_GUIDES } from '@/lib/moduleGuides';
 import { UniversalDeviceProfile, generateUniversalDevice } from '@/lib/universalDeviceGenerator';
 import { generateAdvancedAntiDetection } from '@/lib/advancedAntiDetection';
 import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator';
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord } from '@/lib/accountHistoryManager';
+import { MODULE_GUIDES } from '@/lib/moduleGuides';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ShieldAlert, ArrowLeft, Lock, Globe, Terminal, Cpu, Sparkles, ExternalLink, ShieldCheck, Zap, Bot, Eye, Key, MessageSquare, Heart, Copy, Play, Loader2, Skull } from 'lucide-react';
+import { ShieldAlert, ArrowLeft, Globe, Terminal, Cpu, Sparkles, ExternalLink, ShieldCheck, Zap, Bot, Key, Heart, Copy, Loader2, Skull } from 'lucide-react';
 import { toast } from 'sonner';
 
 type DarkTab = 'hub' | 'skynetchat' | 'deephat' | 'venice' | 'simplelogin' | 'nastia' | 'uncensored' | 'atomicmail';
@@ -20,13 +21,12 @@ type DarkTab = 'hub' | 'skynetchat' | 'deephat' | 'venice' | 'simplelogin' | 'na
 export default function DarkSpecial() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<DarkTab>('hub');
-  
+
   // States for device and injections per service
   const [device, setDevice] = useState<UniversalDeviceProfile | null>(null);
   const [personalData, setPersonalData] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
-  
+
   const [antiFraudMode, setAntiFraudMode] = useState(true);
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
   const [enableHumanBehavior, setEnableHumanBehavior] = useState(true);
@@ -50,7 +50,7 @@ export default function DarkSpecial() {
     const newPerson = generatePersonalData();
     setDevice(newDev);
     setPersonalData(newPerson);
-    
+
     saveAccountRecord({
       id: `${serviceKey}_${Date.now()}`,
       email: newPerson.email,
@@ -75,110 +75,52 @@ export default function DarkSpecial() {
     });
   };
 
-  const handleInjectAndOpen = (serviceKey: Exclude<DarkTab, 'hub'>) => {
-    if (!device) {
-      toast.error('Gere um perfil técnico primeiro!');
-      return;
-    }
-
-    setIsInjecting(true);
+  const buildInSiteScript = (serviceKey: Exclude<DarkTab, 'hub'>): string => {
     const target = serviceUrls[serviceKey];
+    const antiDetectionCode = antiFraudMode ? generateAdvancedAntiDetection() : '';
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: serviceKey as any, userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 70, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-    try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado pelo navegador! Permita pop-ups.');
-        setIsInjecting(false);
-        return;
+    const profileJson = JSON.stringify({
+      macAddress: device!.macAddress,
+      imei: device!.imei,
+      androidId: device!.androidId,
+      model: device!.model,
+      manufacturer: device!.manufacturer,
+      resolution: device!.resolution,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      personalData: personalData ? { name: personalData.fullName, email: personalData.email, phone: personalData.phone } : null,
+    }).replace(/"/g, '\\"');
+
+    const enabledFeatures = [
+      ...(antiFraudMode ? ['Motor Anti-Detecção 16+'] : []),
+      ...(simulateNativeApp ? ['Simulação App Nativo'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+      'Sessão isolada',
+    ];
+
+    const body = `
+      ${antiFraudMode ? `// 1. Motor Anti-Detecção 16+\n${antiDetectionCode}` : '// 1. Motor Anti-Detecção DESATIVADO'}
+
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+
+      ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : '// 3. Comportamento humano DESATIVADO'}
+
+      // 4. Injeção de identidade (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('${serviceKey}_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      if (profile.personalData) {
+        localStorage.setItem('${serviceKey}_persona', JSON.stringify(profile.personalData));
       }
+    `;
 
-      const antiDetectionCode = antiFraudMode ? generateAdvancedAntiDetection() : '';
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: serviceKey as any, userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 800, maxDelay: 3000, minTypingSpeed: 70, maxTypingSpeed: 180, enableMouseMovement: true, enableScrolling: true })
-        : '';
-
-      const profileJson = JSON.stringify({
-        macAddress: device.macAddress,
-        imei: device.imei,
-        androidId: device.androidId,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        resolution: device.resolution,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        personalData: personalData ? { name: personalData.fullName, email: personalData.email, phone: personalData.phone } : null,
-      }).replace(/"/g, '\\"');
-
-      const fullScript = `
-        (function() {
-          try {
-            ${antiDetectionCode}
-            ${appSimCode}
-            ${behaviorCode}
-
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('${serviceKey}_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            if (profile.personalData) {
-              localStorage.setItem('${serviceKey}_persona', JSON.stringify(profile.personalData));
-            }
-
-            console.log('%c✓ ${target.name} • Perfil Blindado & Injeção Ativa!', 'color: #00d9ff; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #050508; font-family: monospace; color: #00d9ff; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛡️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">${target.name.toUpperCase()} • BLINDAGEM DARK ATIVA!</div>
-                  <p style="font-size: 14px; color: #888; margin-bottom: 30px;">Dispositivo mascarado, headers sanitizados e sessão isolada com sucesso.</p>
-                  <button onclick="window.location.href='${target.url}'" style="padding: 14px 28px; background: #00d9ff; color: #050508; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; font-family: monospace;">
-                    ACESSAR ${target.name.toUpperCase()} AGORA →
-                  </button>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = "${target.url}";
-            }, 2500);
-          } catch(err) {
-            console.error('Erro na injeção Dark:', err);
-            window.location.href = "${target.url}";
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Dark Injector - ${target.name}</title>
-          <meta charset="UTF-8">
-          <style>
-            body { background: #050508; color: #00d9ff; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .box { text-align: center; padding: 40px; border: 1px solid rgba(0, 217, 255, 0.3); border-radius: 12px; background: rgba(10, 14, 39, 0.8); }
-          </style>
-        </head>
-        <body>
-          <div class="box">
-            <h2>🛡️ DARK SUITE • INJETANDO ${target.name.toUpperCase()}</h2>
-            <p>Aplicando motor anti-detecção e simulador de app...</p>
-            <script>${fullScript}</script>
-          </div>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      setIsInjecting(false);
-      toast.success(`Injeção executada para ${target.name}!`, { description: 'Redirecionando com sessão blindada.' });
-    } catch (e) {
-      console.error(e);
-      setIsInjecting(false);
-      toast.error('Erro ao abrir aba blindada.');
-    }
+    return wrapInSiteScript(target.name, body, enabledFeatures, '#00d9ff');
   };
 
   const copyProfile = () => {
@@ -191,7 +133,7 @@ export default function DarkSpecial() {
   return (
     <div className="min-h-screen bg-[#050505] text-white font-mono p-6 md:p-12 relative overflow-hidden">
       <div className="max-w-6xl mx-auto">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between mb-8 border-b border-[#222] pb-4">
           <div>
@@ -244,8 +186,6 @@ export default function DarkSpecial() {
         {/* Content Area */}
         {activeTab === 'hub' ? (
           <div className="space-y-8">
-            <ModuleGuide guide={MODULE_GUIDES['dark']} accentClass="text-cyan-400" />
-            
             <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-6">
               <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-cyan-400" />
@@ -260,7 +200,7 @@ export default function DarkSpecial() {
                   const item = serviceUrls[key];
                   const IconComp = item.icon;
                   return (
-                    <div 
+                    <div
                       key={key}
                       onClick={() => setActiveTab(key)}
                       className="bg-[#0e1224] border border-[#222] hover:border-cyan-500/50 rounded-xl p-5 cursor-pointer transition-all hover:shadow-[0_0_25px_rgba(0,217,255,0.15)] flex flex-col justify-between"
@@ -296,8 +236,6 @@ export default function DarkSpecial() {
           />
         ) : (
           <div className="space-y-6">
-            <ModuleGuide guide={MODULE_GUIDES[activeTab]} accentClass="text-cyan-400" />
-
             {/* Service Generator Panel */}
             <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-6 md:p-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b border-[#222]">
@@ -403,15 +341,6 @@ export default function DarkSpecial() {
                       <Copy className="w-4 h-4 mr-2" />
                       Copiar Dados do Perfil
                     </Button>
-
-                    <Button
-                      onClick={() => handleInjectAndOpen(activeTab as Exclude<DarkTab, 'hub'>)}
-                      disabled={isInjecting}
-                      className="bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-[#050508] font-extrabold text-xs px-6 py-3 shadow-[0_0_30px_rgba(0,217,255,0.3)]"
-                    >
-                      {isInjecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                      INJETAR E ABRIR {serviceUrls[activeTab].name.toUpperCase()} →
-                    </Button>
                   </div>
                 </div>
               ) : (
@@ -429,6 +358,29 @@ export default function DarkSpecial() {
                 </div>
               )}
             </div>
+
+            {/* Injeção In-Site */}
+            {device && (
+              <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-6 md:p-8">
+                <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-cyan-400" />
+                  Injeção In-Site — {serviceUrls[activeTab].name}
+                </h2>
+                <InSitePanel
+                  siteName={serviceUrls[activeTab].name}
+                  siteUrl={serviceUrls[activeTab].url}
+                  accentText="text-cyan-400"
+                  accentHex="#00d9ff"
+                  disabled={!device}
+                  features={[
+                    ...(antiFraudMode ? ['Motor Anti-Detecção 16+'] : []),
+                    ...(simulateNativeApp ? ['Simulação App Nativo'] : []),
+                    ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+                  ]}
+                  buildScript={() => buildInSiteScript(activeTab as Exclude<DarkTab, 'hub'>)}
+                />
+              </div>
+            )}
           </div>
         )}
 

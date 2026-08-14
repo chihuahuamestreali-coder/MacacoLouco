@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ShieldAlert, ArrowLeft, Lock, Globe, Terminal, Cpu, Sparkles, ExternalLink, ShieldCheck, Zap } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { toast } from 'sonner';
+import { openSiteInNewTab } from '@/lib/inSiteInjection';
 
 export default function PrivateTunnelsManager() {
   const [, setLocation] = useLocation();
@@ -21,36 +22,8 @@ export default function PrivateTunnelsManager() {
   };
 
   const openDarkSite = (url: string, name: string) => {
-    const win = window.open('', '_blank');
-    if (!win) {
-      toast.error('Pop-up bloqueado pelo navegador!');
-      return;
-    }
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Dark Tunnel - ${name}</title>
-        <style>
-          body { background: #050508; color: #10b981; font-family: monospace; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-          .box { text-align: center; padding: 30px; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; background: rgba(5, 5, 8, 0.8); }
-        </style>
-      </head>
-      <body>
-        <div class="box">
-          <h2>🛡️ DARK SUITE • REDIRECIONANDO SEGURO</h2>
-          <p>Estabelecendo túnel criptografado para <strong>${name}</strong>...</p>
-          <script>
-            setTimeout(() => {
-              window.location.href = "${url}";
-            }, 1500);
-          </script>
-        </div>
-      </body>
-      </html>
-    `);
-    win.document.close();
-    toast.success(`Conectando de forma blindada a ${name}`);
+    openSiteInNewTab(url);
+    toast.success(`Abrindo ${name} em nova guia`);
   };
 
   return (

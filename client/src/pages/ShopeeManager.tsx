@@ -7,9 +7,11 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { wrapInSiteScript } from '@/lib/inSiteInjection';
+import InSitePanel from '@/components/InSitePanel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { ShoppingBag, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff } from 'lucide-react';
+import { ShoppingBag, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -18,7 +20,6 @@ export default function ShopeeManager() {
   const [device, setDevice] = useState<ShopeeDeviceProfile | null>(null);
   const [personalData, setPersonalData] = useState<ReturnType<typeof generatePersonalData> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isInjecting, setIsInjecting] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
   // Simulação de App Nativo — ATIVADA POR PADRÃO (pedido do usuário)
   const [simulateNativeApp, setSimulateNativeApp] = useState(true);
@@ -61,117 +62,76 @@ export default function ShopeeManager() {
     });
   };
 
-  const handleInjectAndOpen = async () => {
-    if (!device) {
-      toast.error('Gere um perfil Shopee primeiro!');
-      return;
-    }
-    setIsInjecting(true);
-    try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado! Permita pop-ups no navegador.');
-        setIsInjecting(false);
-        return;
-      }
+  const buildInSiteScript = (): string => {
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'shopee', userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
+      : '';
 
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'shopee', userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
-        : '';
+    const profileJson = JSON.stringify({
+      macAddress: device!.macAddress,
+      imei: device!.imei,
+      androidId: device!.androidId,
+      model: device!.model,
+      manufacturer: device!.manufacturer,
+      resolution: device!.resolution,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      spsid: device!.spsid,
+      shopeeDeviceId: device!.shopeeDeviceId,
+      appVersion: device!.appVersion,
+    }).replace(/"/g, '\\"');
 
-      const profileJson = JSON.stringify({
-        macAddress: device.macAddress,
-        imei: device.imei,
-        androidId: device.androidId,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        resolution: device.resolution,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        spsid: device.spsid,
-        shopeeDeviceId: device.shopeeDeviceId,
-        appVersion: device.appVersion,
-      }).replace(/"/g, '\\"');
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['Simulação App Shopee (WebView Shopping)'] : []),
+      ...(enableSACS ? ['Device ID & SPSID Shopee Blindados'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
+    ];
 
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(simulateNativeApp ? ['Simulação App Shopee (WebView Shopping)'] : []),
-        ...(enableSACS ? ['Device ID & SPSID Shopee Blindados'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano Realista'] : []),
-      ];
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
 
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Executa motor anti-detecção avançado (16+ ferramentas)
-            ${antiDetectionCode}
+      ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Shopee e Bridge\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
 
-            ${simulateNativeApp ? `// 2. SIMULAÇÃO DE APP NATIVO — WebView Shopee e Bridge\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+      ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : '// 3. Comportamento humano DESATIVADO'}
 
-            ${enableHumanBehavior ? `// 3. Comportamento humano simulado\n${behaviorCode}` : ''}
+      // 4. Injeção de identidade Shopee (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('shopee_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_model', profile.model);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_sp_device_id', profile.shopeeDeviceId);
+      localStorage.setItem('_sp_spsid', profile.spsid);
+    `;
 
-            // 4. Injeta perfil de hardware + identidade anti-cheating da Shopee
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('shopee_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            localStorage.setItem('_device_model', profile.model);
-            localStorage.setItem('_device_mac', profile.macAddress);
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_sp_device_id', profile.shopeeDeviceId);
-            localStorage.setItem('_sp_spsid', profile.spsid);
+    return wrapInSiteScript('Shopee', body, enabledFeatures, '#ee4d2d');
+  };
 
-            console.log('%c✓ Shopee Device & ${enabledFeatures.length} Módulos Injetados com Sucesso!', 'color: #ee4d2d; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0a0e27; font-family: monospace; color: #ee4d2d; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛡️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">SHOPEE BLINDAGEM & APP SIMULATOR ATIVO!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">${enabledFeatures.join(' • ')}<br/>Redirecionando para a Shopee...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = 'https://shopee.com.br';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção Shopee:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro ao injetar Shopee: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando Shopee...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #0a0e27; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: #ee4d2d; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">🛡️</div>
-            <div style="margin-top: 20px; font-size: 18px; color: #ee4d2d;">Injetando Shopee Device & SACS Shield...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success('Injeção Shopee disparada com sucesso!');
-    } catch (e) {
-      console.error(e);
-      toast.error('Erro ao abrir aba de injeção Shopee');
-    } finally {
-      setIsInjecting(false);
-    }
+  const handleAfterCopy = () => {
+    saveAccountRecord({
+      id: `sp_${Date.now()}`,
+      email: personalData!.email,
+      createdAt: new Date(),
+      status: 'pending',
+      deviceFingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      personalData: {
+        name: personalData!.fullName,
+        phone: personalData!.phone,
+        birthDate: personalData!.birthDate,
+        city: personalData!.city,
+        state: personalData!.state,
+      },
+      behaviorConfig: { minDelay: 600, maxDelay: 2500, typingSpeed: 130 },
+      notes: 'Shopee — script in-site copiado para injeção manual',
+    });
   };
 
   return (
@@ -291,20 +251,28 @@ export default function ShopeeManager() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 pt-6 border-t border-orange-600/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground">
-                {device ? '✓ Perfeito! Perfil gerado e pronto para injeção.' : '⚠️ Gere um perfil na etapa 1 antes de injetar.'}
-              </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!device || isInjecting}
-                className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir Shopee com Blindagem
-              </Button>
-            </div>
+          <div className="border border-orange-600/30 rounded-2xl p-6 bg-card/50 backdrop-blur-sm shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-orange-400 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-green-400" />
+              3. Injeção In-Site
+            </h2>
+            <InSitePanel
+              siteName="Shopee"
+              siteUrl="https://shopee.com.br"
+              accentText="text-orange-400"
+              accentHex="#ee4d2d"
+              disabled={!device}
+              features={[
+                'Motor Anti-Detecção 16+',
+                ...(simulateNativeApp ? ['Simulação App Shopee'] : []),
+                ...(enableSACS ? ['Device ID & SPSID'] : []),
+                ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+              ]}
+              buildScript={buildInSiteScript}
+              onAfterCopy={handleAfterCopy}
+            />
           </div>
         </div>
       </div>

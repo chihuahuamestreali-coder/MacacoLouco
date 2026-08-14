@@ -27,6 +27,10 @@ import VanGoghHub from "@/pages/VanGoghHub";
 import SheinManager from "@/pages/SheinManager";
 import CiderManager from "@/pages/CiderManager";
 import UgphoneManager from "@/pages/UgphoneManager";
+import MonkeyCodeManager from "@/pages/MonkeyCodeManager";
+import Base44Manager from "@/pages/Base44Manager";
+import LovableManager from "@/pages/LovableManager";
+import EmergenteManager from "@/pages/EmergenteManager";
 
 function AppRouter() {
   return (
@@ -53,6 +57,10 @@ function AppRouter() {
       <Route path={"/shein"} component={SheinManager} />
       <Route path={"/cider"} component={CiderManager} />
       <Route path={"/ugphone"} component={UgphoneManager} />
+      <Route path={"/monkeycode"} component={MonkeyCodeManager} />
+      <Route path={"/base44"} component={Base44Manager} />
+      <Route path={"/lovable"} component={LovableManager} />
+      <Route path={"/emergente"} component={EmergenteManager} />
       <Route path={"/ursa"} component={UrsaManager} />
       <Route path={"/van-gogh"} component={VanGoghHub} />
       <Route path={"/404"} component={NotFound} />

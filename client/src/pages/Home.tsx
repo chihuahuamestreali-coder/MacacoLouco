@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud } from 'lucide-react';
+import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud, Code2, Layers, Rocket, Flame } from 'lucide-react';
 import DarkSpecialBanner from '@/components/DarkSpecialBanner';
 import VanGoghBanner from '@/components/VanGoghBanner';
 import ScoobyDooBanner from '@/components/ScoobyDooBanner';
@@ -158,7 +158,40 @@ export default function Home() {
       path: '/ursa', 
       icon: Bot, 
       color: 'from-blue-600/15 via-blue-600/5 to-transparent border-blue-500/30 text-blue-400 hover:border-blue-500/80',
-      badge: 'EXTERNAL SITE'
+      badge: 'EXTERNAL SITE',
+      externalUrl: 'https://tuamaeaquelaursa.com/'
+    },
+    { 
+      title: 'MonkeyCode Master', 
+      desc: 'Nova identidade MAC/IMEI + device ID e tokens anti-bot da plataforma de coding AI, blindagem 16+ e app nativo', 
+      path: '/monkeycode', 
+      icon: Code2, 
+      color: 'from-cyan-600/15 via-cyan-600/5 to-transparent border-cyan-500/30 text-cyan-300 hover:border-cyan-400/80',
+      badge: 'CODING AI PRO'
+    },
+    { 
+      title: 'Base-44 Master', 
+      desc: 'Nova identidade MAC/IMEI + device ID, sessão e fingerprint do registro oficial, blindagem 16+ e app nativo', 
+      path: '/base44', 
+      icon: Layers, 
+      color: 'from-indigo-600/15 via-indigo-600/5 to-transparent border-indigo-500/30 text-indigo-300 hover:border-indigo-400/80',
+      badge: 'REGISTER 16+'
+    },
+    { 
+      title: 'Lovable Master', 
+      desc: 'Nova identidade MAC/IMEI + device ID, sessão e anon ID do login de criação, blindagem 16+ e app nativo', 
+      path: '/lovable', 
+      icon: Rocket, 
+      color: 'from-violet-600/15 via-violet-600/5 to-transparent border-violet-500/30 text-violet-300 hover:border-violet-400/80',
+      badge: 'APP BUILDER PRO'
+    },
+    { 
+      title: 'Emergente Master', 
+      desc: 'Nova identidade MAC/IMEI + device ID, sessão e UTM da URL oficial de criação, blindagem 16+ e app nativo', 
+      path: '/emergente', 
+      icon: Flame, 
+      color: 'from-amber-600/15 via-amber-600/5 to-transparent border-amber-500/30 text-amber-300 hover:border-amber-400/80',
+      badge: 'SIGNUP BLINDADO'
     },
   ];
 
@@ -169,7 +202,7 @@ export default function Home() {
         <div className="text-center mb-12 border-b border-border/40 pb-8">
           <div className="mb-5 flex items-center justify-center gap-3">
             <img src="/manus-storage/device-master-mark_0b9ede57.png" alt="Símbolo Device Master" className="h-11 w-11 rounded-xl border border-teal-300/30 bg-slate-950/70 p-2" />
-            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 19 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
+            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 23 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
           </div>
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs mb-4 shadow-sm">
             <Cpu className="w-4 h-4 animate-pulse" />
@@ -190,7 +223,7 @@ export default function Home() {
             return (
               <div
                 key={idx}
-                onClick={() => setLocation(item.path)}
+                onClick={() => item.externalUrl ? window.open(item.externalUrl, '_blank') : setLocation(item.path)}
                 className={`group relative rounded-2xl border bg-gradient-to-br ${item.color} p-6 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl flex flex-col justify-between backdrop-blur-sm`}
               >
                 <div>
