@@ -24,6 +24,9 @@ import PrivateTunnelsManager from "./pages/PrivateTunnelsManager";
 import DarkSpecial from "./pages/DarkSpecial";
 import UrsaManager from "@/pages/UrsaManager";
 import VanGoghHub from "@/pages/VanGoghHub";
+import SheinManager from "@/pages/SheinManager";
+import CiderManager from "@/pages/CiderManager";
+import UgphoneManager from "@/pages/UgphoneManager";
 
 function AppRouter() {
   return (
@@ -47,6 +50,9 @@ function AppRouter() {
       <Route path={"/private-tunnels"} component={PrivateTunnelsManager} />
       <Route path={"/dark"} component={DarkSpecial} />
       <Route path={"/scooby-doo"} component={ScoobyDooHub} />
+      <Route path={"/shein"} component={SheinManager} />
+      <Route path={"/cider"} component={CiderManager} />
+      <Route path={"/ugphone"} component={UgphoneManager} />
       <Route path={"/ursa"} component={UrsaManager} />
       <Route path={"/van-gogh"} component={VanGoghHub} />
       <Route path={"/404"} component={NotFound} />

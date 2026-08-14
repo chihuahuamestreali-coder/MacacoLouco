@@ -276,7 +276,7 @@ export default function ScoobyDooHub() {
               Gera um dispositivo móvel, tokens de app e coordenadas GPS em capitais brasileiras para bypass de restrições de entrega.
             </p>
             <div className="flex flex-wrap gap-4 items-center">
-              <Button onClick={handleGenerate} disabled={isGenerating} className={`${activePlatform === 'ifood' ? 'bg-red-600 hover:bg-red-700' : activePlatform === 'aiqfome' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} font-bold px-6 py-2.5`}>
+              <Button onClick={handleGenerate} disabled={isGenerating} className={`${activePlatform === 'ifood' ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} font-bold px-6 py-2.5`}>
                 {isGenerating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
                 Gerar Perfil {PLATFORM_CONFIG[activePlatform].name}
               </Button>
@@ -337,7 +337,7 @@ export default function ScoobyDooHub() {
               <Button
                 onClick={handleInjectAndOpen}
                 disabled={!device || isInjecting}
-                className={`w-full sm:w-auto ${activePlatform === 'ifood' ? 'bg-red-600 hover:bg-red-700' : activePlatform === 'aiqfome' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2`}
+                className={`w-full sm:w-auto ${activePlatform === 'ifood' ? 'bg-red-600 hover:bg-red-700' : 'bg-yellow-500 hover:bg-yellow-600 text-black'} font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2`}
               >
                 {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
                 Injetar & Abrir {PLATFORM_CONFIG[activePlatform].name}

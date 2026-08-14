@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud } from 'lucide-react';
 import DarkSpecialBanner from '@/components/DarkSpecialBanner';
 import VanGoghBanner from '@/components/VanGoghBanner';
 import ScoobyDooBanner from '@/components/ScoobyDooBanner';
@@ -39,6 +39,30 @@ export default function Home() {
       icon: ShoppingBag, 
       color: 'from-orange-600/15 via-orange-600/5 to-transparent border-orange-500/30 text-orange-400 hover:border-orange-500/80',
       badge: 'SACS BYPASS'
+    },
+    { 
+      title: 'SHEIN Master', 
+      desc: 'Nova identidade MAC/IMEI + cookies de sessão, blindagem anti-bot 16+ e app nativo', 
+      path: '/shein', 
+      icon: Shirt, 
+      color: 'from-fuchsia-600/15 via-fuchsia-600/5 to-transparent border-fuchsia-500/30 text-fuchsia-400 hover:border-fuchsia-500/80',
+      badge: 'ANTI-BOT 16+'
+    },
+    { 
+      title: 'Cider Master', 
+      desc: 'Nova identidade MAC/IMEI + cookies de sessão, blindagem anti-fraude e app nativo', 
+      path: '/cider', 
+      icon: Gem, 
+      color: 'from-violet-600/15 via-violet-600/5 to-transparent border-violet-500/30 text-violet-400 hover:border-violet-500/80',
+      badge: 'ANTI-FRAUD PRO'
+    },
+    { 
+      title: 'UGPhone Master', 
+      desc: 'Nova identidade MAC/IMEI + sessão e cookies do portal cloud phone, blindagem 16+ e app nativo', 
+      path: '/ugphone', 
+      icon: Cloud, 
+      color: 'from-orange-600/15 via-red-600/5 to-transparent border-orange-500/30 text-orange-400 hover:border-orange-500/80',
+      badge: 'CLOUD PHONE PRO'
     },
     { 
       title: 'Instagram Manager', 
@@ -145,7 +169,7 @@ export default function Home() {
         <div className="text-center mb-12 border-b border-border/40 pb-8">
           <div className="mb-5 flex items-center justify-center gap-3">
             <img src="/manus-storage/device-master-mark_0b9ede57.png" alt="Símbolo Device Master" className="h-11 w-11 rounded-xl border border-teal-300/30 bg-slate-950/70 p-2" />
-            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 16 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
+            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 19 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
           </div>
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs mb-4 shadow-sm">
             <Cpu className="w-4 h-4 animate-pulse" />

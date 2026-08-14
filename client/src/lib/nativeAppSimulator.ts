@@ -11,7 +11,7 @@
  */
 
 export interface AppSimulationOptions {
-  platform: 'instagram' | 'aliexpress' | 'tiktok' | 'facebook' | 'temu' | 'claude' | 'gmail' | 'manus' | 'universal' | 'skynetchat' | 'deephat' | 'venice' | 'simplelogin' | 'nastia' | 'mercadolibre' | 'amazon' | 'shopee' | 'discord' | 'github' | 'ifood' | 'zedelivery';
+  platform: 'instagram' | 'aliexpress' | 'tiktok' | 'facebook' | 'temu' | 'claude' | 'gmail' | 'manus' | 'universal' | 'skynetchat' | 'deephat' | 'venice' | 'simplelogin' | 'nastia' | 'mercadolibre' | 'amazon' | 'shopee' | 'discord' | 'github' | 'ifood' | 'zedelivery' | 'shein' | 'cider' | 'ugphone';
   locale?: string;
   appVersion?: string;
 }
@@ -358,6 +358,76 @@ export function generateNativeAppSimulationForProfile(
               Object.defineProperty(navigator, 'platform', { get: function() { return "Linux armv8l"; }, configurable: true });
             } catch(e) {}
             console.log('%c💛 Simulação de App Nativo ZÉ DELIVERY ATIVA (anti-fraude Zé desafiado)', 'color: #ffcc00; font-weight: bold; font-size: 13px;');
+          } catch(err) { console.error('App sim erro:', err); }
+        })();
+      `;
+    case 'shein':
+      return `
+        (function() {
+          try {
+            window.isWebview = true;
+            window.isSheinApp = true;
+            window.SheinBridge = { isPresent: true, version: '7.1.0', locale: '${locale}', deviceId: '${options.imei}', appType: 'fashion_app' };
+            if (!window.ReactNativeWebView) {
+              window.ReactNativeWebView = { postMessage: function(){}, injectJSON: function(){}, canGoBack: true, canGoForward: false };
+            }
+            window.__APP_ENV__ = 'native';
+            window.__NATIVE_SHELL__ = true;
+            window.__SHEIN_DEEP_LINK__ = true;
+            try {
+              Object.defineProperty(navigator, 'userAgent', {
+                get: function() { return "${options.userAgent} SheinApp/7.1.0 Android/13 (SM-G991B; ${locale}; app_store)"; },
+                configurable: true
+              });
+            } catch(e) {}
+            console.log('%c🛍️ Simulação de App Nativo SHEIN ATIVA (anti-bot SHEIN desafiado)', 'color: #e7114f; font-weight: bold; font-size: 13px;');
+          } catch(err) { console.error('App sim erro:', err); }
+        })();
+      `;
+    case 'cider':
+      return `
+        (function() {
+          try {
+            window.isWebview = true;
+            window.isCiderApp = true;
+            window.CiderBridge = { isPresent: true, version: '2.9.0', locale: '${locale}', deviceId: '${options.imei}', appType: 'fashion_app' };
+            if (!window.ReactNativeWebView) {
+              window.ReactNativeWebView = { postMessage: function(){}, injectJSON: function(){}, canGoBack: true, canGoForward: false };
+            }
+            window.__APP_ENV__ = 'native';
+            window.__NATIVE_SHELL__ = true;
+            window.__CIDER_DEEP_LINK__ = true;
+            try {
+              Object.defineProperty(navigator, 'userAgent', {
+                get: function() { return "${options.userAgent} CiderApp/2.9.0 Android/13 (SM-G991B; ${locale}; app_store)"; },
+                configurable: true
+              });
+            } catch(e) {}
+            console.log('%c👗 Simulação de App Nativo CIDER ATIVA (anti-fraude Cider desafiado)', 'color: #8b5cf6; font-weight: bold; font-size: 13px;');
+          } catch(err) { console.error('App sim erro:', err); }
+        })();
+      `;
+    case 'ugphone':
+      return `
+        (function() {
+          try {
+            window.isWebview = true;
+            window.isUgPhoneApp = true;
+            window.UgPhoneBridge = { isPresent: true, version: '1.12.0', locale: '${locale}', deviceId: '${options.imei}', appType: 'cloud_phone' };
+            if (!window.ReactNativeWebView) {
+              window.ReactNativeWebView = { postMessage: function(){}, injectJSON: function(){}, canGoBack: true, canGoForward: false };
+            }
+            window.__APP_ENV__ = 'native';
+            window.__NATIVE_SHELL__ = true;
+            window.__UG_CLOUD_PHONE__ = true;
+            window.__UG_DEEP_LINK__ = true;
+            try {
+              Object.defineProperty(navigator, 'userAgent', {
+                get: function() { return "${options.userAgent} UgPhoneApp/1.12.0 Android/13 (CloudNode; ${locale}; app_store)"; },
+                configurable: true
+              });
+            } catch(e) {}
+            console.log('%c☁️ Simulação de App Nativo UGPHONE ATIVA (portal cloud phone desafiado)', 'color: #ff7f5b; font-weight: bold; font-size: 13px;');
           } catch(err) { console.error('App sim erro:', err); }
         })();
       `;
