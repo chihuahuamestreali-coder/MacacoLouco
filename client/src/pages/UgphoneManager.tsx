@@ -7,9 +7,10 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { copyInjectionScript, openSiteInNewTab, wrapInSiteScript, IN_SITE_STEPS } from '@/lib/inSiteInjection';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Cloud, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Cookie, Server } from 'lucide-react';
+import { Cloud, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Cookie, Server, TerminalSquare, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -63,140 +64,110 @@ export default function UgphoneManager() {
     });
   };
 
-  const handleInjectAndOpen = async () => {
+  const buildInSiteScript = (): string => {
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'ugphone', userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
+      : '';
+
+    const profileJson = JSON.stringify({
+      macAddress: device!.macAddress,
+      imei: device!.imei,
+      androidId: device!.androidId,
+      model: device!.model,
+      manufacturer: device!.manufacturer,
+      resolution: device!.resolution,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      ugphoneDeviceId: device!.ugphoneDeviceId,
+      sessionToken: device!.sessionToken,
+      region: device!.region,
+      plan: device!.plan,
+      locale: device!.locale,
+      timezone: device!.timezone,
+    }).replace(/"/g, '\\"');
+
+    const cookiesJson = JSON.stringify(device!.cookies).replace(/"/g, '\\"');
+
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['App Nativo UGPhone (Cloud Phone)'] : []),
+      ...(enableSessionShield ? ['Sessão & Cookies Blindados'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+    ];
+
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
+
+      ${simulateNativeApp ? `// 2. Simulação App Nativo UGPhone\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+
+      ${enableHumanBehavior ? `// 3. Comportamento humano\n${behaviorCode}` : ''}
+
+      // 4. Injeção de Identidade + Sessão do Portal (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('ugphone_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_model', profile.model);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_device_android_id', profile.androidId);
+      localStorage.setItem('_ugphone_device_id', profile.ugphoneDeviceId);
+      localStorage.setItem('_ugphone_session_token', profile.sessionToken);
+      localStorage.setItem('_ugphone_region', profile.region);
+      localStorage.setItem('_ugphone_plan', profile.plan);
+
+      ${enableSessionShield ? `
+        try {
+          const cookies = JSON.parse("${cookiesJson}");
+          Object.keys(cookies).forEach(function(key) {
+            localStorage.setItem('ugphone_' + key, cookies[key]);
+          });
+          document.cookie = 'device_id=' + cookies.device_id + '; path=/; max-age=31536000';
+          document.cookie = 'session_token=' + cookies.session_token + '; path=/; max-age=31536000';
+          document.cookie = 'region=' + cookies.region + '; path=/; max-age=31536000';
+          document.cookie = 'plan=' + cookies.plan + '; path=/; max-age=31536000';
+          document.cookie = 'locale=pt_BR; path=/; max-age=31536000';
+          console.log('%c🍪 Sessão & Cookies UGPhone Injetados', 'color: #ff7f5b; font-weight: bold;');
+        } catch(e) {}
+      ` : ''}
+    `;
+
+    return wrapInSiteScript('UGPhone', body, enabledFeatures, '#ff7f5b');
+  };
+
+  const handleCopyScript = async () => {
     if (!device) {
       toast.error('Gere um perfil UGPhone primeiro!');
       return;
     }
     setIsInjecting(true);
     try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado! Permita pop-ups no navegador.');
-        setIsInjecting(false);
-        return;
+      const script = buildInSiteScript();
+      const result = await copyInjectionScript(script);
+      if (result.success) {
+        toast.success('Script de injeção UGPhone copiado!', {
+          description: 'Agora abra o portal, pressione F12, cole no Console e dê Enter.',
+        });
+      } else {
+        toast.error(result.message);
       }
-
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'ugphone', userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 600, maxDelay: 2500, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
-        : '';
-
-      const profileJson = JSON.stringify({
-        macAddress: device.macAddress,
-        imei: device.imei,
-        androidId: device.androidId,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        resolution: device.resolution,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        ugphoneDeviceId: device.ugphoneDeviceId,
-        sessionToken: device.sessionToken,
-        region: device.region,
-        plan: device.plan,
-        locale: device.locale,
-        timezone: device.timezone,
-      }).replace(/"/g, '\\"');
-
-      const cookiesJson = JSON.stringify(device.cookies).replace(/"/g, '\\"');
-
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(simulateNativeApp ? ['App Nativo UGPhone (Cloud Phone)'] : []),
-        ...(enableSessionShield ? ['Sessão & Cookies Blindados'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
-      ];
-
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Motor Anti-Detecção 16+
-            ${antiDetectionCode}
-
-            ${simulateNativeApp ? `// 2. Simulação App Nativo UGPhone\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
-
-            ${enableHumanBehavior ? `// 3. Comportamento humano\n${behaviorCode}` : ''}
-
-            // 4. Injeção de Identidade + Sessão do Portal
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('ugphone_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            localStorage.setItem('_device_model', profile.model);
-            localStorage.setItem('_device_mac', profile.macAddress);
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_device_android_id', profile.androidId);
-            localStorage.setItem('_ugphone_device_id', profile.ugphoneDeviceId);
-            localStorage.setItem('_ugphone_session_token', profile.sessionToken);
-            localStorage.setItem('_ugphone_region', profile.region);
-            localStorage.setItem('_ugphone_plan', profile.plan);
-
-            ${enableSessionShield ? `
-              try {
-                const cookies = JSON.parse("${cookiesJson}");
-                Object.keys(cookies).forEach(function(key) {
-                  localStorage.setItem('ugphone_' + key, cookies[key]);
-                });
-                document.cookie = 'device_id=' + cookies.device_id + '; path=/; max-age=31536000';
-                document.cookie = 'session_token=' + cookies.session_token + '; path=/; max-age=31536000';
-                document.cookie = 'region=' + cookies.region + '; path=/; max-age=31536000';
-                document.cookie = 'plan=' + cookies.plan + '; path=/; max-age=31536000';
-                document.cookie = 'locale=pt_BR; path=/; max-age=31536000';
-                console.log('%c🍪 Sessão & Cookies UGPhone Injetados', 'color: #ff7f5b; font-weight: bold;');
-              } catch(e) {}
-            ` : ''}
-
-            console.log('%c✓ UGPhone Device & ${enabledFeatures.length} Módulos Injetados com Sucesso!', 'color: #ff7f5b; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0a0e27; font-family: monospace; color: #ff7f5b; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">☁️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">UGPHONE BLINDAGEM & APP SIMULATOR ATIVO!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">${enabledFeatures.join(' • ')}<br/>Abrindo o portal de login/criação UGPhone...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = 'https://www.ugphone.com/toc-portal/#/login';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção UGPhone:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro ao injetar UGPhone: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando UGPhone...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #0a0e27; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: #ff7f5b; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">☁️</div>
-            <div style="margin-top: 20px; font-size: 18px; color: #ff7f5b;">Injetando UGPhone Device & Session Shield...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success('Injeção UGPhone disparada com sucesso!');
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao abrir aba de injeção UGPhone');
+      toast.error('Erro ao copiar o script de injeção UGPhone');
     } finally {
       setIsInjecting(false);
     }
+  };
+
+  const handleOpenSite = () => {
+    openSiteInNewTab('https://www.ugphone.com/toc-portal/#/login');
+    toast.info('Portal UGPhone aberto em nova guia', {
+      description: 'Pressione F12 → Console → cole o script → Enter.',
+    });
   };
 
   return (
@@ -305,19 +276,45 @@ export default function UgphoneManager() {
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-orange-600/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <Server className="w-4 h-4 text-orange-400" />
-                {device ? '✓ Identidade pronta para abrir o portal de login/criação blindado.' : '⚠️ Gere uma identidade na etapa 1 antes de injetar.'}
+            <div className="mt-8 pt-6 border-t border-orange-600/20">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-4">
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Server className="w-4 h-4 text-orange-400" />
+                  {device ? '✓ Identidade pronta para abrir o portal de login/criação blindado.' : '⚠️ Gere uma identidade na etapa 1 antes de injetar.'}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <Button
+                    onClick={handleOpenSite}
+                    disabled={!device}
+                    className="w-full sm:w-auto bg-transparent hover:bg-orange-600/20 text-orange-400 border border-orange-500/60 font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Abrir Portal Oficial
+                  </Button>
+                  <Button
+                    onClick={handleCopyScript}
+                    disabled={!device || isInjecting}
+                    className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <TerminalSquare className="w-5 h-5" />}
+                    Copiar Script de Injeção
+                  </Button>
+                </div>
               </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!device || isInjecting}
-                className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir Portal UGPhone
-              </Button>
+              <div className="rounded-xl bg-background/50 border border-orange-600/20 p-4 text-xs font-mono space-y-1.5">
+                <p className="text-orange-400 font-bold mb-2 flex items-center gap-2">
+                  <TerminalSquare className="w-4 h-4" />
+                  COMO INJETAR NO SITE REAL (Console)
+                </p>
+                {IN_SITE_STEPS.map((step, i) => (
+                  <p key={i} className="text-orange-200/80">
+                    <span className="text-orange-400 font-bold">{i + 1}.</span> {step}
+                  </p>
+                ))}
+                <p className="text-yellow-400/90 mt-2 pt-2 border-t border-orange-600/20">
+                  ⚠️ O script roda no domínio do portal UGPhone real (ugphone.com). O perfil é gravado no localStorage/cookies DESTE domínio — sem aba intermediária, sem redirect.
+                </p>
+              </div>
             </div>
           </div>
         </div>

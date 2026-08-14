@@ -7,9 +7,10 @@ import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator'
 import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { saveAccountRecord, getAccountHistory } from '@/lib/accountHistoryManager';
+import { copyInjectionScript, openSiteInNewTab, wrapInSiteScript, IN_SITE_STEPS } from '@/lib/inSiteInjection';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Shirt, Play, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, MapPin, Cookie } from 'lucide-react';
+import { Shirt, Loader2, ShieldCheck, Smartphone, Sparkles, ArrowLeft, User, Eye, EyeOff, Cookie, TerminalSquare, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -64,163 +65,133 @@ export default function SheinManager() {
     });
   };
 
-  const handleInjectAndOpen = async () => {
+  const buildInSiteScript = (): string => {
+    const antiDetectionCode = generateAdvancedAntiDetection();
+    const appSimCode = simulateNativeApp
+      ? generateNativeAppSimulationForProfile({ platform: 'shein', userAgent: device!.userAgent, imei: device!.imei })
+      : '';
+    const behaviorCode = enableHumanBehavior
+      ? generateBehaviorInjectionScript({ minDelay: 550, maxDelay: 2300, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
+      : '';
+
+    const profileJson = JSON.stringify({
+      macAddress: device!.macAddress,
+      imei: device!.imei,
+      androidId: device!.androidId,
+      model: device!.model,
+      manufacturer: device!.manufacturer,
+      resolution: device!.resolution,
+      fingerprint: device!.fingerprint,
+      userAgent: device!.userAgent,
+      sheinDeviceId: device!.sheinDeviceId,
+      sid: device!.sid,
+      countryCode: device!.countryCode,
+      currency: device!.currency,
+      locale: device!.locale,
+      timezone: device!.timezone,
+      location: device!.location,
+    }).replace(/"/g, '\\"');
+
+    const cookiesJson = JSON.stringify(device!.cookies).replace(/"/g, '\\"');
+
+    const enabledFeatures = [
+      'Motor Anti-Detecção 16+',
+      ...(simulateNativeApp ? ['App Nativo SHEIN (WebView Fashion)'] : []),
+      ...(enableCookieShield ? ['Cookies & Sessão Blindados'] : []),
+      ...(enableLocationSpoofing ? ['GPS Spoofing Ativo'] : []),
+      ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
+    ];
+
+    const body = `
+      // 1. Motor Anti-Detecção 16+
+      ${antiDetectionCode}
+
+      ${simulateNativeApp ? `// 2. Simulação App Nativo SHEIN\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
+
+      ${enableHumanBehavior ? `// 3. Comportamento humano\n${behaviorCode}` : ''}
+
+      // 4. GPS Spoofing
+      ${enableLocationSpoofing ? `
+        try {
+          const loc = { lat: ${device!.location.lat}, lng: ${device!.location.lng}, acc: ${device!.location.accuracy} };
+          navigator.geolocation.getCurrentPosition = function(success) {
+            success({
+              coords: {
+                latitude: loc.lat,
+                longitude: loc.lng,
+                accuracy: loc.acc,
+                altitude: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null
+              },
+              timestamp: Date.now()
+            });
+          };
+          console.log('%c📍 GPS Spoofing SHEIN Ativo: ' + loc.lat + ', ' + loc.lng, 'color: #e7114f; font-weight: bold;');
+        } catch(e) {}
+      ` : ''}
+
+      // 5. Injeção de Identidade + Cookies de Sessão (NO DOMÍNIO REAL)
+      const profile = JSON.parse("${profileJson}");
+      localStorage.setItem('shein_device_profile', JSON.stringify(profile));
+      localStorage.setItem('_device_fingerprint', profile.fingerprint);
+      localStorage.setItem('_device_model', profile.model);
+      localStorage.setItem('_device_mac', profile.macAddress);
+      localStorage.setItem('_device_imei', profile.imei);
+      localStorage.setItem('_device_android_id', profile.androidId);
+      localStorage.setItem('_shein_device_id', profile.sheinDeviceId);
+      localStorage.setItem('_shein_sid', profile.sid);
+      localStorage.setItem('_shein_country', profile.countryCode);
+      localStorage.setItem('_shein_currency', profile.currency);
+
+      ${enableCookieShield ? `
+        try {
+          const cookies = JSON.parse("${cookiesJson}");
+          Object.keys(cookies).forEach(function(key) {
+            localStorage.setItem('shein_' + key, cookies[key]);
+          });
+          document.cookie = 'device_id=' + cookies.device_id + '; path=/; max-age=31536000';
+          document.cookie = 'sid=' + cookies.sid + '; path=/; max-age=31536000';
+          document.cookie = 'countryCode=BR; path=/; max-age=31536000';
+          document.cookie = 'currency=BRL; path=/; max-age=31536000';
+          console.log('%c🍪 Cookies de Sessão SHEIN Injetados', 'color: #e7114f; font-weight: bold;');
+        } catch(e) {}
+      ` : ''}
+    `;
+
+    return wrapInSiteScript('SHEIN', body, enabledFeatures, '#e7114f');
+  };
+
+  const handleCopyScript = async () => {
     if (!device) {
       toast.error('Gere um perfil SHEIN primeiro!');
       return;
     }
     setIsInjecting(true);
     try {
-      const win = window.open('', '_blank');
-      if (!win) {
-        toast.error('Pop-up bloqueado! Permita pop-ups no navegador.');
-        setIsInjecting(false);
-        return;
+      const script = buildInSiteScript();
+      const result = await copyInjectionScript(script);
+      if (result.success) {
+        toast.success('Script de injeção SHEIN copiado!', {
+          description: 'Agora abra o site, pressione F12, cole no Console e dê Enter.',
+        });
+      } else {
+        toast.error(result.message);
       }
-
-      const antiDetectionCode = generateAdvancedAntiDetection();
-      const appSimCode = simulateNativeApp
-        ? generateNativeAppSimulationForProfile({ platform: 'shein', userAgent: device.userAgent, imei: device.imei })
-        : '';
-      const behaviorCode = enableHumanBehavior
-        ? generateBehaviorInjectionScript({ minDelay: 550, maxDelay: 2300, minTypingSpeed: 70, maxTypingSpeed: 190, enableMouseMovement: true, enableScrolling: true })
-        : '';
-
-      const profileJson = JSON.stringify({
-        macAddress: device.macAddress,
-        imei: device.imei,
-        androidId: device.androidId,
-        model: device.model,
-        manufacturer: device.manufacturer,
-        resolution: device.resolution,
-        fingerprint: device.fingerprint,
-        userAgent: device.userAgent,
-        sheinDeviceId: device.sheinDeviceId,
-        sid: device.sid,
-        countryCode: device.countryCode,
-        currency: device.currency,
-        locale: device.locale,
-        timezone: device.timezone,
-        location: device.location,
-      }).replace(/"/g, '\\"');
-
-      const cookiesJson = JSON.stringify(device.cookies).replace(/"/g, '\\"');
-
-      const enabledFeatures = [
-        'Motor Anti-Detecção 16+',
-        ...(simulateNativeApp ? ['App Nativo SHEIN (WebView Fashion)'] : []),
-        ...(enableCookieShield ? ['Cookies & Sessão Blindados'] : []),
-        ...(enableLocationSpoofing ? ['GPS Spoofing Ativo'] : []),
-        ...(enableHumanBehavior ? ['Comportamento Humano'] : []),
-      ];
-
-      const fullScript = `
-        (function() {
-          try {
-            // 1. Motor Anti-Detecção 16+
-            ${antiDetectionCode}
-
-            ${simulateNativeApp ? `// 2. Simulação App Nativo SHEIN\n${appSimCode}` : '// 2. Simulação de app nativo DESATIVADA'}
-
-            ${enableHumanBehavior ? `// 3. Comportamento humano\n${behaviorCode}` : ''}
-
-            // 4. GPS Spoofing
-            ${enableLocationSpoofing ? `
-              try {
-                const loc = { lat: ${device.location.lat}, lng: ${device.location.lng}, acc: ${device.location.accuracy} };
-                navigator.geolocation.getCurrentPosition = function(success) {
-                  success({
-                    coords: {
-                      latitude: loc.lat,
-                      longitude: loc.lng,
-                      accuracy: loc.acc,
-                      altitude: null,
-                      altitudeAccuracy: null,
-                      heading: null,
-                      speed: null
-                    },
-                    timestamp: Date.now()
-                  });
-                };
-                console.log('%c📍 GPS Spoofing SHEIN Ativo: ' + loc.lat + ', ' + loc.lng, 'color: #e7114f; font-weight: bold;');
-              } catch(e) {}
-            ` : ''}
-
-            // 5. Injeção de Identidade + Cookies de Sessão
-            const profile = JSON.parse("${profileJson}");
-            localStorage.setItem('shein_device_profile', JSON.stringify(profile));
-            localStorage.setItem('_device_fingerprint', profile.fingerprint);
-            localStorage.setItem('_device_model', profile.model);
-            localStorage.setItem('_device_mac', profile.macAddress);
-            localStorage.setItem('_device_imei', profile.imei);
-            localStorage.setItem('_device_android_id', profile.androidId);
-            localStorage.setItem('_shein_device_id', profile.sheinDeviceId);
-            localStorage.setItem('_shein_sid', profile.sid);
-            localStorage.setItem('_shein_country', profile.countryCode);
-            localStorage.setItem('_shein_currency', profile.currency);
-
-            ${enableCookieShield ? `
-              try {
-                const cookies = JSON.parse("${cookiesJson}");
-                Object.keys(cookies).forEach(function(key) {
-                  localStorage.setItem('shein_' + key, cookies[key]);
-                });
-                document.cookie = 'device_id=' + cookies.device_id + '; path=/; max-age=31536000';
-                document.cookie = 'sid=' + cookies.sid + '; path=/; max-age=31536000';
-                document.cookie = 'countryCode=BR; path=/; max-age=31536000';
-                document.cookie = 'currency=BRL; path=/; max-age=31536000';
-                console.log('%c🍪 Cookies de Sessão SHEIN Injetados', 'color: #e7114f; font-weight: bold;');
-              } catch(e) {}
-            ` : ''}
-
-            console.log('%c✓ SHEIN Device & ${enabledFeatures.length} Módulos Injetados com Sucesso!', 'color: #e7114f; font-weight: bold; font-size: 16px;');
-
-            document.body.innerHTML = \`
-              <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #0a0e27; font-family: monospace; color: #e7114f; font-size: 24px; text-align: center; padding: 20px;">
-                <div>
-                  <div style="font-size: 64px; margin-bottom: 20px;">🛍️</div>
-                  <div style="font-weight: bold; margin-bottom: 10px;">SHEIN BLINDAGEM & APP SIMULATOR ATIVO!</div>
-                  <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">${enabledFeatures.join(' • ')}<br/>Redirecionando para a SHEIN...</div>
-                </div>
-              </div>
-            \`;
-
-            setTimeout(() => {
-              window.location.href = 'https://br.shein.com';
-            }, 1800);
-          } catch(err) {
-            console.error('Erro na injeção SHEIN:', err);
-            document.body.innerHTML = '<div style="color: red; padding: 40px; font-family: monospace;">Erro ao injetar SHEIN: ' + err.message + '</div>';
-          }
-        })();
-      `;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Blindando SHEIN...</title>
-          <style>
-            body { margin: 0; padding: 0; background: #0a0e27; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: monospace; color: #e7114f; }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: center;">
-            <div style="font-size: 48px;">🛍️</div>
-            <div style="margin-top: 20px; font-size: 18px; color: #e7114f;">Injetando SHEIN Device & Cookie Shield...</div>
-          </div>
-          <script>${fullScript}</script>
-        </body>
-        </html>
-      `);
-      win.document.close();
-      toast.success('Injeção SHEIN disparada com sucesso!');
     } catch (e) {
       console.error(e);
-      toast.error('Erro ao abrir aba de injeção SHEIN');
+      toast.error('Erro ao copiar o script de injeção SHEIN');
     } finally {
       setIsInjecting(false);
     }
+  };
+
+  const handleOpenSite = () => {
+    openSiteInNewTab('https://br.shein.com');
+    toast.info('SHEIN aberta em nova guia', {
+      description: 'Pressione F12 → Console → cole o script → Enter.',
+    });
   };
 
   return (
@@ -337,19 +308,45 @@ export default function SheinManager() {
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-fuchsia-600/20 flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <Cookie className="w-4 h-4 text-fuchsia-400" />
-                {device ? '✓ Identidade pronta para injeção de cookies e blindagem.' : '⚠️ Gere uma identidade na etapa 1 antes de injetar.'}
+            <div className="mt-8 pt-6 border-t border-fuchsia-600/20">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-4">
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Cookie className="w-4 h-4 text-fuchsia-400" />
+                  {device ? '✓ Identidade pronta para injeção de cookies e blindagem.' : '⚠️ Gere uma identidade na etapa 1 antes de injetar.'}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <Button
+                    onClick={handleOpenSite}
+                    disabled={!device}
+                    className="w-full sm:w-auto bg-transparent hover:bg-fuchsia-600/20 text-fuchsia-400 border border-fuchsia-500/60 font-bold px-6 py-3 rounded-xl flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Abrir Site Oficial
+                  </Button>
+                  <Button
+                    onClick={handleCopyScript}
+                    disabled={!device || isInjecting}
+                    className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <TerminalSquare className="w-5 h-5" />}
+                    Copiar Script de Injeção
+                  </Button>
+                </div>
               </div>
-              <Button
-                onClick={handleInjectAndOpen}
-                disabled={!device || isInjecting}
-                className="w-full sm:w-auto bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-700 hover:to-pink-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-              >
-                {isInjecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-                Injetar & Abrir SHEIN com Blindagem
-              </Button>
+              <div className="rounded-xl bg-background/50 border border-fuchsia-600/20 p-4 text-xs font-mono space-y-1.5">
+                <p className="text-fuchsia-400 font-bold mb-2 flex items-center gap-2">
+                  <TerminalSquare className="w-4 h-4" />
+                  COMO INJETAR NO SITE REAL (Console)
+                </p>
+                {IN_SITE_STEPS.map((step, i) => (
+                  <p key={i} className="text-fuchsia-200/80">
+                    <span className="text-fuchsia-400 font-bold">{i + 1}.</span> {step}
+                  </p>
+                ))}
+                <p className="text-yellow-400/90 mt-2 pt-2 border-t border-fuchsia-600/20">
+                  ⚠️ O script roda no domínio da SHEIN real (br.shein.com). O perfil é gravado no localStorage/cookies DESTE domínio — sem aba intermediária, sem redirect.
+                </p>
+              </div>
             </div>
           </div>
         </div>

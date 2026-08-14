@@ -10,7 +10,7 @@ import { MODULE_GUIDES } from '@/lib/moduleGuides';
  * CONFIRMAÇÃO: Monitora a nova aba e mostra status em tempo real.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { generateManusDeviceProfile, generateManusSignupUrl, generateManusBookmarklet } from '@/lib/manusDeviceGenerator';
 import { generatePersonalData } from '@/lib/personalDataGenerator';
 import { generateRandomUserAgent, generateCompleteAntiDetectionScript } from '@/lib/cookieAndUserAgentManager';
@@ -18,7 +18,8 @@ import { generateBehaviorInjectionScript } from '@/lib/humanBehaviorSimulator';
 import { generateNativeAppSimulationForProfile } from '@/lib/nativeAppSimulator';
 import { saveAccountRecord, getAccountHistory, generatePerformanceReport, PerformanceReport } from '@/lib/accountHistoryManager';
 import { generateManusUrlWithReferral } from '@/lib/manusInjectionHelper';
-import { Zap, Copy, ExternalLink, Shield, BarChart3, Trash2, ClipboardCheck, AlertCircle, CheckCircle2, Loader2, Smartphone, Globe, Fingerprint, MonitorPlay, Play } from 'lucide-react';
+import { copyInjectionScript, openSiteInNewTab, wrapInSiteScript, IN_SITE_STEPS } from '@/lib/inSiteInjection';
+import { Zap, Copy, ExternalLink, Shield, BarChart3, Trash2, ClipboardCheck, AlertCircle, CheckCircle2, Loader2, Smartphone, Globe, Fingerprint, MonitorPlay, TerminalSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocation } from 'wouter';
 
@@ -37,7 +38,7 @@ export default function ManusManager() {
   const [injectionStatus, setInjectionStatus] = useState<'idle' | 'opening' | 'injecting' | 'success' | 'error'>('idle');
   const [injectionMessage, setInjectionMessage] = useState('');
   const [lastInjectedAt, setLastInjectedAt] = useState<string>('');
-  const manusWindowRef = useRef<Window | null>(null);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   useEffect(() => {
     const history = getAccountHistory();
@@ -45,53 +46,6 @@ export default function ManusManager() {
     const report = generatePerformanceReport();
     setPerformanceReport(report);
   }, []);
-
-  // Monitora a aba do Manus para detectar se o script rodou
-  useEffect(() => {
-    if (!manusWindowRef.current || injectionStatus !== 'injecting') return;
-    
-    const checkInterval = setInterval(() => {
-      try {
-        const w = manusWindowRef.current;
-        if (!w || w.closed) {
-          clearInterval(checkInterval);
-          setInjectionStatus('error');
-          setInjectionMessage('Aba do Manus foi fechada antes da injeção');
-          return;
-        }
-        
-        // Tenta verificar se a aba carregou e o script foi injetado
-        // Isso funciona porque abrimos a aba com document.write, então verificamos o DOM
-        const doc = w.document;
-        if (doc && doc.readyState === 'complete') {
-          // Verifica se nosso overlay de confirmação existe
-          const overlay = doc.getElementById('device-injected-overlay');
-          if (overlay) {
-            clearInterval(checkInterval);
-            setInjectionStatus('success');
-            setInjectionMessage('Device injetado com sucesso na aba do Manus!');
-            setLastInjectedAt(new Date().toLocaleTimeString('pt-BR'));
-            toast.success('Device injetado no Manus!', {
-              description: 'A aba do Manus está mascarada. Você pode criar sua conta.',
-            });
-          }
-        }
-      } catch (e) {
-        // Cross-origin: não podemos ler o DOM do manus.im
-        // Mas se a aba abriu e não fechou, assumimos que o script foi injetado
-        // via document.write que fizemos antes do carregamento
-        clearInterval(checkInterval);
-        setInjectionStatus('success');
-        setInjectionMessage('Script injetado na aba do Manus (injected via window.open)');
-        setLastInjectedAt(new Date().toLocaleTimeString('pt-BR'));
-        toast.success('Script injetado na aba do Manus!', {
-          description: 'O código foi executado na nova aba.',
-        });
-      }
-    }, 1000);
-    
-    return () => clearInterval(checkInterval);
-  }, [injectionStatus]);
 
   const handleGenerateDevice = async () => {
     setIsGenerating(true);
@@ -115,34 +69,25 @@ export default function ManusManager() {
   };
 
   /**
-   * INJEÇÃO REAL VIA WINDOW.OPEN:
-   * 1. Abre uma nova aba com uma página intermediária
-   * 2. Usa document.write para escrever o script + redirecionamento
-   * 3. O script roda ANTES do Manus carregar
-   * 4. Mostra confirmação visual na aba do Manus
+   * INJEÇÃO IN-SITE (CONSOLE DO SITE REAL):
+   * 1. Copia o script para a área de transferência
+   * 2. Abre o Manus em nova guia
+   * 3. Usuário cola o script no Console (F12) da própria guia do Manus
+   * 4. O perfil é gravado NO DOMÍNIO manus.im (localStorage/sessionStorage)
+   *
+   * Por que não usar mais a aba about:blank + document.write + redirect?
+   * Cross-origin: about:blank e manus.im têm origens diferentes. Tudo que era
+   * gravado na aba intermediária (localStorage, cookies, overrides) morria na
+   * navegação para o site real. Aqui o script roda NO DOMÍNIO CERTO.
    */
-  const handleOpenManus = () => {
-    if (!currentDevice || !currentPersonalData) {
-      toast.error('Gere um dispositivo primeiro!');
-      return;
-    }
-
-    setInjectionStatus('opening');
-    setInjectionMessage('Abrindo aba do Manus...');
-
-    // Gera a URL do Manus
-    const manusUrl = generateManusUrlWithReferral(referralLink);
-    
-    // Gera o script completo de injeção
-    const bookmarklet = generateManusBookmarklet(currentDevice);
+  const buildInSiteScript = (): string => {
+    const bookmarklet = generateManusBookmarklet(currentDevice!);
     const code = bookmarklet.replace('javascript:', '');
-    
-    // Monta scripts locais de simulação e proteção
+
     const nativeAppCode = simulateNativeApp
-      ? generateNativeAppSimulationForProfile({ platform: 'manus', userAgent: currentUserAgent?.userAgent || currentDevice.userAgent, imei: currentDevice.imei || currentDevice.fingerprint })
+      ? generateNativeAppSimulationForProfile({ platform: 'manus', userAgent: currentUserAgent?.userAgent || currentDevice!.userAgent, imei: currentDevice!.imei || currentDevice!.fingerprint })
       : '';
 
-    // Se modo anti-fraude está ativo, adiciona scripts de proteção + comportamento humano
     let fullCode = nativeAppCode + '\n' + code;
     if (antiFraudMode && currentUserAgent) {
       const antiDetectionScript = generateCompleteAntiDetectionScript(currentUserAgent);
@@ -156,183 +101,82 @@ export default function ManusManager() {
       });
       fullCode = antiDetectionScript + '\n' + behaviorScript + '\n' + code;
     }
-    
-    // Salva registro
+
+    const features = [
+      'Motor Anti-Detecção',
+      ...(simulateNativeApp ? ['App Nativo Manus'] : []),
+      ...(antiFraudMode ? ['Comportamento Humano'] : []),
+      ...(referralLink ? ['Link de Convite'] : []),
+    ];
+
+    return wrapInSiteScript('Manus', fullCode, features, '#a855f7');
+  };
+
+  const saveAccountRecordForInjection = () => {
     const accountRecord = {
       id: `account_${Date.now()}`,
-      email: currentPersonalData.email,
+      email: currentPersonalData!.email,
       createdAt: new Date(),
       status: 'pending' as const,
       referralLink,
-      deviceFingerprint: currentDevice.fingerprint,
-      userAgent: currentUserAgent.userAgent,
+      deviceFingerprint: currentDevice!.fingerprint,
+      userAgent: currentUserAgent!.userAgent,
       personalData: {
-        name: currentPersonalData.fullName,
-        phone: currentPersonalData.phone,
-        birthDate: currentPersonalData.birthDate,
-        city: currentPersonalData.city,
-        state: currentPersonalData.state,
+        name: currentPersonalData!.fullName,
+        phone: currentPersonalData!.phone,
+        birthDate: currentPersonalData!.birthDate,
+        city: currentPersonalData!.city,
+        state: currentPersonalData!.state,
       },
       behaviorConfig: {
         minDelay: antiFraudMode ? 1000 : 500,
         maxDelay: antiFraudMode ? 5000 : 3000,
         typingSpeed: antiFraudMode ? 150 : 100,
       },
-      notes: `Anti-fraude: ${antiFraudMode ? 'Ativo' : 'Inativo'}`,
+      notes: `Anti-fraude: ${antiFraudMode ? 'Ativo' : 'Inativo'} — injeção in-site`,
     };
     saveAccountRecord(accountRecord);
-    
-    // MÉTODO REAL DE INJEÇÃO:
-    // Abre uma nova aba com about:blank, escreve o script + redirecionamento
-    const newWindow = window.open('', '_blank');
-    
-    if (!newWindow) {
-      setInjectionStatus('error');
-      setInjectionMessage('Pop-up bloqueado pelo navegador');
-      toast.error('Pop-up bloqueado', {
-        description: 'Desative o bloqueador de pop-ups e tente novamente',
-      });
+  };
+
+  const handleCopyScript = async () => {
+    if (!currentDevice || !currentPersonalData) {
+      toast.error('Gere um dispositivo primeiro!');
       return;
     }
-    
-    manusWindowRef.current = newWindow;
+
+    saveAccountRecordForInjection();
+
+    try {
+      const script = buildInSiteScript();
+      const result = await copyInjectionScript(script);
+      if (result.success) {
+        setCopiedScript(true);
+        setInjectionStatus('success');
+        setInjectionMessage('Script de injeção Manus copiado! Cole no Console do site oficial.');
+        setLastInjectedAt(new Date().toLocaleTimeString('pt-BR'));
+        toast.success('Script de injeção Manus copiado!', {
+          description: 'Agora abra o Manus, pressione F12, cole no Console e dê Enter.',
+        });
+      } else {
+        setInjectionStatus('error');
+        setInjectionMessage(result.message);
+        toast.error(result.message);
+      }
+    } catch (e) {
+      setInjectionStatus('error');
+      setInjectionMessage('Erro ao copiar o script de injeção');
+      console.error(e);
+      toast.error('Erro ao copiar o script de injeção');
+    }
+  };
+
+  const handleOpenManus = () => {
+    const manusUrl = generateManusUrlWithReferral(referralLink);
+    openSiteInNewTab(manusUrl);
     setInjectionStatus('injecting');
-    setInjectionMessage('Injetando script na aba do Manus...');
-    
-    // Escreve uma página intermediária que:
-    // 1. Mostra uma tela de "injetando..."
-    // 2. Executa o script de injeção
-    // 3. Redireciona para o Manus após o script rodar
-    newWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Device Injector - Manus</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', monospace;
-            background: #0a0e27;
-            color: #00d9ff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-          }
-          .injecting {
-            text-align: center;
-            animation: fadeIn 0.3s ease;
-          }
-          .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(0, 217, 255, 0.2);
-            border-top: 4px solid #00d9ff;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-          }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-          h1 { font-size: 24px; margin-bottom: 10px; color: #00d9ff; }
-          p { font-size: 14px; color: #00d9ff80; margin-bottom: 20px; }
-          .success-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 999999;
-            animation: fadeIn 0.5s ease;
-          }
-          .success-icon {
-            width: 80px; height: 80px;
-            background: #22c55e;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: white;
-            margin-bottom: 20px;
-            animation: fadeIn 0.5s ease;
-          }
-          .success-overlay h2 { color: #22c55e; font-size: 28px; margin-bottom: 10px; }
-          .success-overlay p { color: #22c55e80; font-size: 16px; margin-bottom: 30px; }
-          .goto-btn {
-            padding: 14px 30px;
-            background: #22c55e;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-            transition: all 0.2s ease;
-          }
-          .goto-btn:hover { background: #16a34a; transform: scale(1.05); }
-          .goto-btn:active { transform: scale(0.97); }
-        </style>
-      </head>
-      <body>
-        <div class="injecting" id="injecting-screen">
-          <div class="spinner"></div>
-          <h1>INJETANDO DEVICE...</h1>
-          <p>Aguardando script de injeção executar...</p>
-        </div>
-        
-        <script>
-          try {
-            // === SCRIPT DE INJEÇÃO ===
-            ${fullCode}
-            // === FIM DO SCRIPT ===
-            
-            // Marca que a injeção foi bem-sucedida
-            document.getElementById('injecting-screen').style.display = 'none';
-            
-            // Cria overlay de sucesso
-            const overlay = document.createElement('div');
-            overlay.id = 'device-injected-overlay';
-            overlay.className = 'success-overlay';
-            overlay.innerHTML = \`
-              <div class="success-icon">✓</div>
-              <h2>DEVICE INJETADO!</h2>
-              <p>Seu dispositivo foi mascarado com sucesso</p>
-              <button class="goto-btn" onclick="window.location.href='${manusUrl}'">
-                IR PARA O MANUS →
-              </button>
-            \`;
-            document.body.appendChild(overlay);
-            
-            console.log('✓ Device injetado com sucesso!');
-          } catch(error) {
-            document.getElementById('injecting-screen').innerHTML = \`
-              <div style="color: #ef4444; text-align: center;">
-                <h1 style="font-size: 24px; margin-bottom: 10px;">ERRO NA INJEÇÃO</h1>
-                <p style="color: #ef444480; margin-bottom: 20px;">\${error.message}</p>
-                <button class="goto-btn" style="background: #ef4444;" onclick="window.location.href='${manusUrl}'">
-                  IR PARA O MANUS MESMO ASSIM
-                </button>
-              </div>
-            \`;
-            console.error('Erro ao injetar:', error);
-          }
-        </script>
-      </body>
-      </html>
-    `);
-    
-    newWindow.document.close();
-    
-    toast.info('Script injetado na nova aba!', {
-      description: 'Aguarde a confirmação na aba do Manus.',
+    setInjectionMessage('Manus aberto em nova guia. Cole o script no Console (F12).');
+    toast.info('Manus aberto em nova guia', {
+      description: 'Pressione F12 → Console → cole o script → Enter.',
     });
   };
 
@@ -708,43 +552,47 @@ CEP: ${currentPersonalData.zipCode}`;
                 {/* Injection Section */}
                 <div className="p-4 bg-secondary/30 rounded border border-purple-400/30 font-mono text-xs space-y-3">
                   <p className="text-green-400 font-bold mb-2 flex items-center gap-2">
-                    ▶ INJEÇÃO DE DEVICE
-                    {injectionStatus === 'success' && (
+                    ▶ INJEÇÃO DE DEVICE (IN-SITE)
+                    {injectionStatus === 'success' && copiedScript && (
                       <span className="px-2 py-0.5 bg-green-500/30 text-green-400 border border-green-500/50 rounded text-[10px]">
-                        ATIVO
+                        SCRIPT COPIADO
                       </span>
                     )}
                   </p>
-                  
-                  {/* BOTÃO PRINCIPAL - INJEÇÃO REAL */}
-                  <button
-                    onClick={handleOpenManus}
-                    className={`w-full px-4 py-4 font-bold text-sm transition-all flex items-center justify-center gap-3 rounded border ${
-                      injectionStatus === 'success'
-                        ? 'bg-green-500/20 border-green-500 text-green-400'
-                        : 'bg-gradient-to-r from-purple-500/30 to-cyan-500/30 hover:from-purple-500/50 hover:to-cyan-500/50 border-cyan-400 text-cyan-300 neon-glow'
-                    }`}
-                  >
-                    <Play size={18} />
-                    {injectionStatus === 'success'
-                      ? '✓ INJETADO - ABRIR NOVO DEVICE'
-                      : 'ABRIR MANUS + INJETAR DEVICE'
-                    }
-                  </button>
+
+                  {/* BOTÕES - INJEÇÃO IN-SITE */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      onClick={handleCopyScript}
+                      disabled={!currentDevice || !currentPersonalData}
+                      className="w-full px-4 py-4 font-bold text-sm transition-all flex items-center justify-center gap-3 rounded border bg-gradient-to-r from-purple-500/30 to-cyan-500/30 hover:from-purple-500/50 hover:to-cyan-500/50 border-cyan-400 text-cyan-300 neon-glow disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <TerminalSquare size={18} />
+                      COPIAR SCRIPT DE INJEÇÃO
+                    </button>
+                    <button
+                      onClick={handleOpenManus}
+                      disabled={!currentDevice || !currentPersonalData}
+                      className="w-full px-4 py-4 font-bold text-sm transition-all flex items-center justify-center gap-3 rounded border bg-purple-500/20 hover:bg-purple-500/40 border-purple-400 text-purple-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ExternalLink size={18} />
+                      ABRIR MANUS (NOVA GUIA)
+                    </button>
+                  </div>
 
                   {/* Como funciona */}
                   <div className="border-t border-purple-400/20 pt-3 mt-2">
                     <p className="text-cyan-400 font-bold mb-2 flex items-center gap-2">
                       <ClipboardCheck size={14} />
-                      COMO FUNCIONA
+                      COMO INJETAR NO SITE REAL
                     </p>
                     <div className="bg-cyan-400/10 rounded p-3 border border-cyan-400/30 space-y-1 text-xs">
-                      <p className="text-cyan-300">1. Clique no botão acima</p>
-                      <p className="text-cyan-300">2. Uma <strong>nova aba</strong> abre com tela de "Injetando..."</p>
-                      <p className="text-cyan-300">3. O script roda <strong>automaticamente</strong> (sem console)</p>
-                      <p className="text-cyan-300">4. Tela verde "✓ DEVICE INJETADO" aparece</p>
-                      <p className="text-cyan-300">5. Clique "IR PARA O MANUS" e crie sua conta</p>
-                      <p className="text-yellow-300 mt-2 font-bold">⚠️ Se o pop-up for bloqueado, desative o bloqueador</p>
+                      {IN_SITE_STEPS.map((step, i) => (
+                        <p key={i} className="text-cyan-300">
+                          <span className="text-cyan-400 font-bold">{i + 1}.</span> {step}
+                        </p>
+                      ))}
+                      <p className="text-yellow-300 mt-2 font-bold">⚠️ O script roda NO DOMÍNIO manus.im (sem aba intermediária, sem redirect).</p>
                     </div>
                   </div>
                 </div>
