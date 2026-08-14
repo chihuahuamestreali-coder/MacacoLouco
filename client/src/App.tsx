@@ -35,6 +35,10 @@ import GeeLarkManager from "@/pages/GeeLarkManager";
 import RedfingerManager from "@/pages/RedfingerManager";
 import VmosCloudManager from "@/pages/VmosCloudManager";
 import LdplayerManager from "@/pages/LdplayerManager";
+import TensorManager from "@/pages/TensorManager";
+import SeaArtManager from "@/pages/SeaArtManager";
+import CopilotDesignerManager from "@/pages/CopilotDesignerManager";
+import LeonardoManager from "@/pages/LeonardoManager";
 import IpDisplay from "@/components/IpDisplay";
 
 function AppRouter() {
@@ -70,6 +74,10 @@ function AppRouter() {
       <Route path={"/redfinger"} component={RedfingerManager} />
       <Route path={"/vmoscloud"} component={VmosCloudManager} />
       <Route path={"/ldplayer"} component={LdplayerManager} />
+      <Route path={"/tensor"} component={TensorManager} />
+      <Route path={"/seaart"} component={SeaArtManager} />
+      <Route path={"/copilot-designer"} component={CopilotDesignerManager} />
+      <Route path={"/leonardo"} component={LeonardoManager} />
       <Route path={"/ursa"} component={UrsaManager} />
       <Route path={"/van-gogh"} component={VanGoghHub} />
       <Route path={"/404"} component={NotFound} />

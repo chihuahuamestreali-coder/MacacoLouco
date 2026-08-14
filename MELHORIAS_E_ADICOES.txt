@@ -334,5 +334,53 @@ simulação de app nativo e persona sintética.
   vmoscloud, ldplayer) acessíveis no topo de cada página.
 
 ================================================================
+10. NOVOS MÓDULOS IA DE IMAGEM (ESTILO MANUS / INJEÇÃO IN-SITE)
+================================================================
+
+10.1 QUATRO NOVOS MÓDULOS NO PADRÃO MANUS (INJEÇÃO IN-SITE)
+Todos seguem o mesmo padrão dos módulos cloud/emulador: perfil
+universal (MAC/IMEI/Android ID), device ID específico, sessão e
+cookies no domínio real via console, blindagem anti-bot 16+,
+comportamento humano e simulação de app nativo.
+
+- Tensor.art Master     (/tensor)            tensor.art           violeta
+  Galeria de arte com IA (login de criação).
+  TNS_DEVICE_ID, TNS_SESSION, TNS_ANON_ID, TNS_UID, TNS_CHANNEL.
+  URL: https://tensor.art/
+
+- SeaArt AI Master      (/seaart)            www.seaart.ai/login  ciano
+  Geração de imagens com IA (login de criação, PT-BR).
+  SA_DEVICE_ID, SA_SESSION, SA_ANON_ID, SA_UID, SA_CHANNEL.
+  URL: https://www.seaart.ai/login
+
+- Copilot Designer Master (/copilot-designer) designer.microsoft.com  azul
+  Criação de imagens Microsoft (login de criação, PT-BR).
+  CDP_DEVICE_ID, CDP_SESSION, CDP_ANON_ID, CDP_UID, CDP_MARKET.
+  URL: https://designer.microsoft.com/
+
+- Leonardo.ai Master    (/leonardo)          app.leonardo.ai/auth/login  esmeralda
+  Geração de imagens com IA (login de criação, PT-BR).
+  LEO_DEVICE_ID, LEO_SESSION, LEO_ANON_ID, LEO_UID, LEO_PLAN.
+  URL: https://app.leonardo.ai/auth/login
+
+10.2 ARQUIVOS NOVOS CRIADOS NESTA ETAPA
+- client/src/lib/tensorDeviceGenerator.ts               (módulo Tensor.art)
+- client/src/lib/seaartDeviceGenerator.ts               (módulo SeaArt)
+- client/src/lib/copilotDesignerDeviceGenerator.ts      (módulo Copilot Designer)
+- client/src/lib/leonardoDeviceGenerator.ts             (módulo Leonardo.ai)
+- client/src/pages/TensorManager.tsx                    (menu Tensor.art)
+- client/src/pages/SeaArtManager.tsx                    (menu SeaArt)
+- client/src/pages/CopilotDesignerManager.tsx           (menu Copilot Designer)
+- client/src/pages/LeonardoManager.tsx                  (menu Leonardo.ai)
+
+10.3 ALTERAÇÕES EM ARQUIVOS EXISTENTES
+- App.tsx: rotas /tensor, /seaart, /copilot-designer, /leonardo.
+- Home.tsx: 4 cards novos e contador atualizado para
+  "31 MÓDULOS + 3 HUBS".
+- moduleGuides.ts: guias dos 4 novos módulos (tensor, seaart,
+  copilot-designer, leonardo-ai). A chave "leonardo-ai" evita
+  conflito com a guia existente do submenu Van Gogh "leonardo".
+
+================================================================
 FIM DO DOCUMENTO
 ================================================================

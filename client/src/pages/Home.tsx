@@ -1,5 +1,5 @@
 import { useLocation } from 'wouter';
-import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud, Code2, Layers, Rocket, Flame, Monitor, Smartphone, Gamepad2, ImageIcon } from 'lucide-react';
+import { ShoppingCart, Instagram, Facebook, Video, Bot, Sparkles, Mail, ShieldAlert, Cpu, ArrowRight, Github, MessageCircle, Package, ShoppingBag, Shirt, Gem, Cloud, Code2, Layers, Rocket, Flame, Monitor, Smartphone, Gamepad2, ImageIcon, Palette, Brush } from 'lucide-react';
 import DarkSpecialBanner from '@/components/DarkSpecialBanner';
 import VanGoghBanner from '@/components/VanGoghBanner';
 import ScoobyDooBanner from '@/components/ScoobyDooBanner';
@@ -229,6 +229,38 @@ export default function Home() {
       color: 'from-lime-600/15 via-lime-600/5 to-transparent border-lime-500/30 text-lime-400 hover:border-lime-400/80',
       badge: 'PC EMULATOR'
     },
+    { 
+      title: 'Tensor.art Master', 
+      desc: 'Galeria de arte com IA: nova identidade MAC/IMEI + device ID, sessão, UID e canal, blindagem 16+ e app nativo', 
+      path: '/tensor', 
+      icon: ImageIcon, 
+      color: 'from-violet-600/15 via-violet-600/5 to-transparent border-violet-500/30 text-violet-400 hover:border-violet-400/80',
+      badge: 'AI ART PRO'
+    },
+    { 
+      title: 'SeaArt AI Master', 
+      desc: 'Geração de imagens com IA (PT-BR): nova identidade MAC/IMEI + device ID, sessão, UID e canal, blindagem 16+ e app nativo', 
+      path: '/seaart', 
+      icon: Sparkles, 
+      color: 'from-cyan-600/15 via-cyan-600/5 to-transparent border-cyan-500/30 text-cyan-400 hover:border-cyan-400/80',
+      badge: 'AI IMAGE PT-BR'
+    },
+    { 
+      title: 'Copilot Designer Master', 
+      desc: 'Criação de imagens Microsoft (PT-BR): nova identidade MAC/IMEI + device ID, sessão, UID e market, blindagem 16+ e app nativo', 
+      path: '/copilot-designer', 
+      icon: Palette, 
+      color: 'from-blue-600/15 via-blue-600/5 to-transparent border-blue-500/30 text-blue-400 hover:border-blue-400/80',
+      badge: 'COPILOT PT-BR'
+    },
+    { 
+      title: 'Leonardo.ai Master', 
+      desc: 'Geração de imagens com IA (PT-BR): nova identidade MAC/IMEI + device ID, sessão, UID e plano, blindagem 16+ e app nativo', 
+      path: '/leonardo', 
+      icon: Brush, 
+      color: 'from-emerald-600/15 via-emerald-600/5 to-transparent border-emerald-500/30 text-emerald-400 hover:border-emerald-400/80',
+      badge: 'AI IMAGE PT-BR'
+    },
   ];
 
   return (
@@ -256,7 +288,7 @@ export default function Home() {
         <div className="text-center mb-12 border-b border-border/40 pb-8">
           <div className="mb-5 flex items-center justify-center gap-3">
             <img src="/manus-storage/device-master-mark_0b9ede57.png" alt="Símbolo Device Master" className="h-11 w-11 rounded-xl border border-teal-300/30 bg-slate-950/70 p-2" />
-            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 27 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
+            <div className="text-left"><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-teal-300">FIELD MANUAL / 31 MÓDULOS + 3 HUBS</p><p className="text-xs text-slate-400">Leia o escopo antes de operar</p></div>
           </div>
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs mb-4 shadow-sm">
             <Cpu className="w-4 h-4 animate-pulse" />
