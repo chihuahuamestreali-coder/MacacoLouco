@@ -30,7 +30,7 @@ import UgphoneManager from "@/pages/UgphoneManager";
 
 function AppRouter() {
   return (
-    <Router base="/Gerador_Manus-Infinity">
+    <Router base="/MacacoLouco">
       <Switch>
       {/* Rotas específicas primeiro */}
       <Route path={"/emails"} component={EmailManager} />
